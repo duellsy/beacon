@@ -10,9 +10,10 @@ type BoardCellProps = {
     children: ReactNode;
     teamColor?: TeamColor;
     onAddInitiative?: () => void;
+    isMobile?: boolean;
 };
 
-export function BoardCell({ id, children, teamColor, onAddInitiative }: BoardCellProps) {
+export function BoardCell({ id, children, teamColor, onAddInitiative, isMobile }: BoardCellProps) {
     const { isOver, setNodeRef } = useDroppable({ id });
     const { resolvedAppearance } = useAppearance();
 
@@ -35,7 +36,7 @@ export function BoardCell({ id, children, teamColor, onAddInitiative }: BoardCel
                 <button
                     type="button"
                     onClick={onAddInitiative}
-                    className="flex w-full cursor-pointer items-center justify-center gap-1 rounded-md border border-dashed border-neutral-300 py-1.5 text-xs text-neutral-400 opacity-0 transition-all group-hover/cell:opacity-100 hover:border-neutral-400 hover:text-neutral-500 dark:border-neutral-600 dark:text-neutral-500 dark:hover:border-neutral-500 dark:hover:text-neutral-400"
+                    className={`flex w-full cursor-pointer items-center justify-center gap-1 rounded-md border border-dashed border-neutral-300 py-1.5 text-xs text-neutral-400 transition-all hover:border-neutral-400 hover:text-neutral-500 dark:border-neutral-600 dark:text-neutral-500 dark:hover:border-neutral-500 dark:hover:text-neutral-400 ${isMobile ? '' : 'opacity-0 group-hover/cell:opacity-100'}`}
                 >
                     <Plus className="size-3" />
                 </button>
