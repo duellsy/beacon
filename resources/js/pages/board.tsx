@@ -8,9 +8,10 @@ import {
 } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { Head, router, usePage } from '@inertiajs/react';
-import { Download, FolderOpen, Pencil, Plus, Upload } from 'lucide-react';
+import { Download, FolderOpen, MoreVertical, Pencil, Plus, Upload } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { BoardCell } from '@/components/board/board-cell';
+import { MobileTeamTabs } from '@/components/board/mobile-team-tabs';
 import { DependencyLines } from '@/components/board/dependency-lines';
 import { InitiativeCard } from '@/components/board/initiative-card';
 import { InitiativeModal } from '@/components/board/initiative-modal';
@@ -19,12 +20,19 @@ import { TeamHeader } from '@/components/board/team-header';
 import { TeamModal } from '@/components/board/team-modal';
 import { Button } from '@/components/ui/button';
 import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { useIsMobile } from '@/hooks/use-mobile';
 import AppLayout from '@/layouts/app-layout';
 import BoardController from '@/actions/App/Http/Controllers/BoardController';
 import InitiativeController from '@/actions/App/Http/Controllers/InitiativeController';
@@ -85,6 +93,9 @@ export default function Board() {
     });
     const sensors = useSensors(mouseSensor, touchSensor);
 
+    const isMobile = useIsMobile();
+    const [selectedTeamId, setSelectedTeamId] = useState('__all');
+
     // All columns: unassigned + teams
     const columns = useMemo(
         () => [
@@ -136,6 +147,18 @@ export default function Board() {
         [initiatives],
     );
 
+    // Get initiatives for a mobile swimlane (filtered by selected team)
+    const getMobileInitiatives = useCallback(
+        (status: InitiativeStatus) =>
+            initiatives.filter((i) => {
+                if (i.status !== status) return false;
+                if (selectedTeamId === '__all') return true;
+                if (selectedTeamId === 'unassigned') return i.team_id === null;
+                return i.team_id === selectedTeamId;
+            }),
+        [initiatives, selectedTeamId],
+    );
+
     // Drag handlers
     const handleDragStart = (event: DragStartEvent) => {
         const initiative = event.active.data.current
@@ -158,7 +181,9 @@ export default function Board() {
         ).split(':');
 
         const newTeamId =
-            targetTeamId === 'unassigned' ? null : targetTeamId;
+            targetTeamId === '__keep'
+                ? initiative.team_id
+                : targetTeamId === 'unassigned' ? null : targetTeamId;
         const newStatus = targetStatus as InitiativeStatus;
 
         if (
@@ -221,7 +246,8 @@ export default function Board() {
                 <div className="flex shrink-0 items-center justify-between border-b px-4 py-2">
                     <div className="flex items-center gap-3">
                         <h1 className="text-lg font-semibold">
-                            Initiative Board
+                            <span className="md:hidden">Board</span>
+                            <span className="hidden md:inline">Initiative Board</span>
                         </h1>
                         <Select
                             value={currentProjectId ?? '__all'}
@@ -237,7 +263,7 @@ export default function Board() {
                                 );
                             }}
                         >
-                            <SelectTrigger className="w-[200px]">
+                            <SelectTrigger className="w-[140px] md:w-[200px]">
                                 <FolderOpen className="size-3.5" />
                                 <SelectValue />
                             </SelectTrigger>
@@ -255,7 +281,7 @@ export default function Board() {
                                 ))}
                             </SelectContent>
                         </Select>
-                        {currentProjectId && (
+                        {!isMobile && currentProjectId && (
                             <Button
                                 variant="ghost"
                                 size="icon"
@@ -278,51 +304,94 @@ export default function Board() {
                                 <Pencil className="size-3.5" />
                             </Button>
                         )}
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-7"
-                            onClick={() =>
-                                setProjectModal({
-                                    open: true,
-                                    project: null,
-                                })
-                            }
-                            title="Add Project"
-                        >
-                            <Plus className="size-3.5" />
-                        </Button>
+                        {!isMobile && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-7"
+                                onClick={() =>
+                                    setProjectModal({
+                                        open: true,
+                                        project: null,
+                                    })
+                                }
+                                title="Add Project"
+                            >
+                                <Plus className="size-3.5" />
+                            </Button>
+                        )}
                     </div>
                     <div className="flex items-center gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                                setTeamModal({
-                                    open: true,
-                                    team: null,
-                                })
-                            }
-                        >
-                            <Plus className="size-3.5" />
-                            Add Team
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleExport}
-                        >
-                            <Download className="size-3.5" />
-                            Export
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleImport}
-                        >
-                            <Upload className="size-3.5" />
-                            Import
-                        </Button>
+                        {isMobile ? (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="size-8">
+                                        <MoreVertical className="size-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => setProjectModal({ open: true, project: null })}>
+                                        <Plus className="size-4" />
+                                        New Project
+                                    </DropdownMenuItem>
+                                    {currentProjectId && (
+                                        <DropdownMenuItem
+                                            onClick={() => {
+                                                const p = projects.find((proj) => proj.id === currentProjectId);
+                                                if (p) setProjectModal({ open: true, project: p });
+                                            }}
+                                        >
+                                            <Pencil className="size-4" />
+                                            Edit Project
+                                        </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuItem onClick={() => setTeamModal({ open: true, team: null })}>
+                                        <Plus className="size-4" />
+                                        Add Team
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={handleExport}>
+                                        <Download className="size-4" />
+                                        Export
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={handleImport}>
+                                        <Upload className="size-4" />
+                                        Import
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        ) : (
+                            <>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                        setTeamModal({
+                                            open: true,
+                                            team: null,
+                                        })
+                                    }
+                                >
+                                    <Plus className="size-3.5" />
+                                    Add Team
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleExport}
+                                >
+                                    <Download className="size-3.5" />
+                                    Export
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleImport}
+                                >
+                                    <Upload className="size-3.5" />
+                                    Import
+                                </Button>
+                            </>
+                        )}
                     </div>
                 </div>
 
@@ -332,114 +401,191 @@ export default function Board() {
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
                 >
-                    <div className="flex-1 overflow-auto">
-                        <div
-                            ref={contentRef}
-                            className="relative min-w-fit p-4"
-                        >
-                            <div
-                                className="grid gap-2"
-                                style={{
-                                    gridTemplateColumns: `90px repeat(${gridCols}, 280px)`,
-                                }}
-                            >
-                                {/* Row 1: Header row */}
-                                {/* Corner spacer */}
-                                <div />
-                                {/* Team headers */}
-                                {columns.map((col) => (
-                                    <TeamHeader
-                                        key={col.id}
-                                        team={col.team}
-                                        onEditTeam={(t) =>
-                                            setTeamModal({
-                                                open: true,
-                                                team: t,
-                                            })
-                                        }
-                                    />
-                                ))}
-
-                                {/* Status rows */}
-                                {STATUSES.map((status) => (
-                                    <>
-                                        {/* Swimlane label */}
-                                        <div
-                                            key={`label-${status.key}`}
-                                            className="flex items-start pt-3"
-                                        >
-                                            <span className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
-                                                {status.label}
-                                            </span>
-                                        </div>
-
-                                        {/* Cells for each column in this status row */}
-                                        {columns.map((col) => (
-                                            <BoardCell
-                                                key={`${col.id}:${status.key}`}
-                                                id={`${col.id}:${status.key}`}
-                                                teamColor={col.team?.color}
-                                                onAddInitiative={() =>
-                                                    setInitiativeModal({
-                                                        open: true,
-                                                        initiative: null,
-                                                        defaultTeamId:
-                                                            col.id === 'unassigned'
-                                                                ? null
-                                                                : col.id,
-                                                        defaultStatus: status.key,
-                                                    })
-                                                }
-                                            >
-                                                {getCellInitiatives(
-                                                    col.id,
-                                                    status.key,
-                                                ).map((initiative) => (
-                                                    <InitiativeCard
-                                                        key={
-                                                            initiative.id
-                                                        }
-                                                        initiative={
-                                                            initiative
-                                                        }
-                                                        teamColor={col.team?.color}
-                                                        onOpen={(
-                                                            init,
-                                                        ) =>
-                                                            setInitiativeModal(
-                                                                {
-                                                                    open: true,
-                                                                    initiative:
-                                                                        init,
-                                                                    defaultTeamId:
-                                                                        null,
-                                                                    defaultStatus:
-                                                                        null,
-                                                                },
-                                                            )
-                                                        }
-                                                        onHover={
-                                                            setHoveredInitiativeId
-                                                        }
-                                                        isHighlighted={highlightedInitiativeIds.has(
-                                                            initiative.id,
-                                                        )}
-                                                    />
-                                                ))}
-                                            </BoardCell>
-                                        ))}
-                                    </>
-                                ))}
-                            </div>
-
-                            {/* Dependency lines SVG overlay */}
-                            <DependencyLines
-                                initiatives={initiatives}
-                                hoveredId={hoveredInitiativeId}
-                                contentRef={contentRef}
+                    {isMobile ? (
+                        /* Mobile: team tabs + stacked swimlanes */
+                        <div className="flex flex-1 flex-col overflow-hidden">
+                            <MobileTeamTabs
+                                teams={teams}
+                                selectedTeamId={selectedTeamId}
+                                onSelect={setSelectedTeamId}
                             />
+                            <div className="flex-1 overflow-auto p-4">
+                                <div className="space-y-4">
+                                    {STATUSES.map((status) => {
+                                        const filtered = getMobileInitiatives(status.key);
+                                        const selectedTeam = teams.find((t) => t.id === selectedTeamId);
+                                        const dropId =
+                                            selectedTeamId === '__all'
+                                                ? `__keep:${status.key}`
+                                                : selectedTeamId === 'unassigned'
+                                                  ? `unassigned:${status.key}`
+                                                  : `${selectedTeamId}:${status.key}`;
+
+                                        return (
+                                            <div key={status.key}>
+                                                <div className="mb-2 flex items-center justify-between">
+                                                    <span className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+                                                        {status.label}
+                                                    </span>
+                                                    <span className="text-muted-foreground text-xs tabular-nums">
+                                                        {filtered.length}
+                                                    </span>
+                                                </div>
+                                                <BoardCell
+                                                    id={dropId}
+                                                    teamColor={selectedTeam?.color}
+                                                    onAddInitiative={() =>
+                                                        setInitiativeModal({
+                                                            open: true,
+                                                            initiative: null,
+                                                            defaultTeamId:
+                                                                selectedTeamId === '__all' || selectedTeamId === 'unassigned'
+                                                                    ? null
+                                                                    : selectedTeamId,
+                                                            defaultStatus: status.key,
+                                                        })
+                                                    }
+                                                    isMobile
+                                                >
+                                                    {filtered.map((initiative) => (
+                                                        <InitiativeCard
+                                                            key={initiative.id}
+                                                            initiative={initiative}
+                                                            teamColor={
+                                                                selectedTeamId === '__all'
+                                                                    ? teams.find((t) => t.id === initiative.team_id)?.color
+                                                                    : selectedTeam?.color
+                                                            }
+                                                            onOpen={(init) =>
+                                                                setInitiativeModal({
+                                                                    open: true,
+                                                                    initiative: init,
+                                                                    defaultTeamId: null,
+                                                                    defaultStatus: null,
+                                                                })
+                                                            }
+                                                            onHover={() => {}}
+                                                            isHighlighted={false}
+                                                        />
+                                                    ))}
+                                                </BoardCell>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
                         </div>
-                    </div>
+                    ) : (
+                        /* Desktop: grid layout */
+                        <div className="flex-1 overflow-auto">
+                            <div
+                                ref={contentRef}
+                                className="relative min-w-fit p-4"
+                            >
+                                <div
+                                    className="grid gap-2"
+                                    style={{
+                                        gridTemplateColumns: `90px repeat(${gridCols}, 280px)`,
+                                    }}
+                                >
+                                    {/* Row 1: Header row */}
+                                    {/* Corner spacer */}
+                                    <div />
+                                    {/* Team headers */}
+                                    {columns.map((col) => (
+                                        <TeamHeader
+                                            key={col.id}
+                                            team={col.team}
+                                            onEditTeam={(t) =>
+                                                setTeamModal({
+                                                    open: true,
+                                                    team: t,
+                                                })
+                                            }
+                                        />
+                                    ))}
+
+                                    {/* Status rows */}
+                                    {STATUSES.map((status) => (
+                                        <>
+                                            {/* Swimlane label */}
+                                            <div
+                                                key={`label-${status.key}`}
+                                                className="flex items-start pt-3"
+                                            >
+                                                <span className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+                                                    {status.label}
+                                                </span>
+                                            </div>
+
+                                            {/* Cells for each column in this status row */}
+                                            {columns.map((col) => (
+                                                <BoardCell
+                                                    key={`${col.id}:${status.key}`}
+                                                    id={`${col.id}:${status.key}`}
+                                                    teamColor={col.team?.color}
+                                                    onAddInitiative={() =>
+                                                        setInitiativeModal({
+                                                            open: true,
+                                                            initiative: null,
+                                                            defaultTeamId:
+                                                                col.id === 'unassigned'
+                                                                    ? null
+                                                                    : col.id,
+                                                            defaultStatus: status.key,
+                                                        })
+                                                    }
+                                                >
+                                                    {getCellInitiatives(
+                                                        col.id,
+                                                        status.key,
+                                                    ).map((initiative) => (
+                                                        <InitiativeCard
+                                                            key={
+                                                                initiative.id
+                                                            }
+                                                            initiative={
+                                                                initiative
+                                                            }
+                                                            teamColor={col.team?.color}
+                                                            onOpen={(
+                                                                init,
+                                                            ) =>
+                                                                setInitiativeModal(
+                                                                    {
+                                                                        open: true,
+                                                                        initiative:
+                                                                            init,
+                                                                        defaultTeamId:
+                                                                            null,
+                                                                        defaultStatus:
+                                                                            null,
+                                                                    },
+                                                                )
+                                                            }
+                                                            onHover={
+                                                                setHoveredInitiativeId
+                                                            }
+                                                            isHighlighted={highlightedInitiativeIds.has(
+                                                                initiative.id,
+                                                            )}
+                                                        />
+                                                    ))}
+                                                </BoardCell>
+                                            ))}
+                                        </>
+                                    ))}
+                                </div>
+
+                                {/* Dependency lines SVG overlay */}
+                                <DependencyLines
+                                    initiatives={initiatives}
+                                    hoveredId={hoveredInitiativeId}
+                                    contentRef={contentRef}
+                                />
+                            </div>
+                        </div>
+                    )}
 
                     <DragOverlay dropAnimation={null}>
                         {activeInitiative && (
