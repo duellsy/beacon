@@ -1,7 +1,8 @@
-import { router, useForm } from '@inertiajs/react';
+import { router, useForm, usePage } from '@inertiajs/react';
 import { ExternalLink, Pencil, Trash2, X } from 'lucide-react';
 import type { FormEventHandler } from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import type { SharedData } from '@/types';
 import Markdown from 'react-markdown';
 import TurndownService from 'turndown';
 import { Badge } from '@/components/ui/badge';
@@ -212,6 +213,9 @@ function EditPanel({
     const [addingDep, setAddingDep] = useState(false);
     const [logBody, setLogBody] = useState('');
     const [submittingLog, setSubmittingLog] = useState(false);
+    const [editingLogId, setEditingLogId] = useState<string | null>(null);
+    const [editingLogBody, setEditingLogBody] = useState('');
+    const { auth } = usePage<SharedData>().props;
 
     const handleLogPaste = useCallback(
         (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -263,6 +267,8 @@ function EditPanel({
             setConfirmDelete(false);
             setAddingDep(false);
             setLogBody('');
+            setEditingLogId(null);
+            setEditingLogBody('');
         }
     }, [open, initiative]);
 
@@ -332,6 +338,34 @@ function EditPanel({
                 },
                 onError: () => setSubmittingLog(false),
             },
+        );
+    };
+
+    const handleUpdateLog = (logId: string) => {
+        if (!editingLogBody.trim()) return;
+        router.put(
+            InitiativeLogController.update.url({
+                initiative: initiative.id,
+                log: logId,
+            }),
+            { body: editingLogBody },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setEditingLogId(null);
+                    setEditingLogBody('');
+                },
+            },
+        );
+    };
+
+    const handleDeleteLog = (logId: string) => {
+        router.delete(
+            InitiativeLogController.destroy.url({
+                initiative: initiative.id,
+                log: logId,
+            }),
+            { preserveScroll: true },
         );
     };
 
@@ -430,13 +464,74 @@ function EditPanel({
                                 {formatTimestamp(log.created_at)}
                             </span>
                         </div>
+                    ) : editingLogId === log.id ? (
+                        <div
+                            key={log.id}
+                            className="space-y-2 rounded-md border px-3 py-2"
+                        >
+                            <Textarea
+                                value={editingLogBody}
+                                onChange={(e) =>
+                                    setEditingLogBody(e.target.value)
+                                }
+                                rows={3}
+                            />
+                            <div className="flex gap-2">
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    onClick={() =>
+                                        handleUpdateLog(log.id)
+                                    }
+                                    disabled={!editingLogBody.trim()}
+                                >
+                                    Save
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        setEditingLogId(null);
+                                        setEditingLogBody('');
+                                    }}
+                                >
+                                    Cancel
+                                </Button>
+                            </div>
+                        </div>
                     ) : (
                         <div
                             key={log.id}
-                            className="rounded-md border px-3 py-2"
+                            className="group rounded-md border px-3 py-2"
                         >
-                            <div className="max-w-none text-sm">
-                                <Markdown>{log.body}</Markdown>
+                            <div className="flex items-start justify-between gap-2">
+                                <div className="max-w-none flex-1 text-sm">
+                                    <Markdown>{log.body}</Markdown>
+                                </div>
+                                {log.user_id === auth.user.id && (
+                                    <div className="flex shrink-0 gap-1 opacity-0 group-hover:opacity-100">
+                                        <button
+                                            type="button"
+                                            className="text-muted-foreground hover:text-foreground p-0.5"
+                                            onClick={() => {
+                                                setEditingLogId(log.id);
+                                                setEditingLogBody(log.body);
+                                            }}
+                                        >
+                                            <Pencil className="size-3.5" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="text-muted-foreground hover:text-destructive p-0.5"
+                                            onClick={() =>
+                                                handleDeleteLog(log.id)
+                                            }
+                                        >
+                                            <Trash2 className="size-3.5" />
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                             <p className="text-muted-foreground mt-1 text-[10px]">
                                 {formatTimestamp(log.created_at)}
@@ -463,9 +558,9 @@ function EditPanel({
                         onSubmit={handleSubmit}
                         className="flex min-h-0 flex-1 flex-col"
                     >
-                        <div className="flex min-h-0 flex-1">
+                        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
                             {/* Main column */}
-                            <div className="flex flex-1 flex-col overflow-y-auto border-r p-6">
+                            <div className="flex flex-col border-b p-6 lg:flex-1 lg:border-b-0 lg:border-r lg:overflow-y-auto">
                                 <div className="space-y-4">
                                     <div className="space-y-2">
                                         <Label htmlFor="edit-title">
@@ -511,7 +606,7 @@ function EditPanel({
                             </div>
 
                             {/* Sidebar */}
-                            <div className="flex w-80 shrink-0 flex-col overflow-y-auto p-6">
+                            <div className="flex shrink-0 flex-col p-6 lg:w-80 lg:overflow-y-auto">
                                 <div className="space-y-4">
                                     <div className="space-y-2">
                                         <Label>Status</Label>
@@ -870,9 +965,9 @@ function EditPanel({
                     <SheetTitle>{initiative.title}</SheetTitle>
                 </SheetHeader>
 
-                <div className="flex min-h-0 flex-1">
+                <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
                     {/* Main column */}
-                    <div className="flex flex-1 flex-col overflow-y-auto border-r p-6">
+                    <div className="flex flex-col border-b p-6 lg:flex-1 lg:border-b-0 lg:border-r lg:overflow-y-auto">
                         <div className="mb-4 flex items-start justify-between gap-4">
                             <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
                                 {initiative.title}
@@ -904,7 +999,7 @@ function EditPanel({
                     </div>
 
                     {/* Sidebar */}
-                    <div className="flex w-80 shrink-0 flex-col overflow-y-auto p-6">
+                    <div className="flex shrink-0 flex-col p-6 lg:w-80 lg:overflow-y-auto">
                         <div className="space-y-4">
                             <div className="space-y-1">
                                 <Label className="text-muted-foreground text-xs">

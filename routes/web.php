@@ -42,6 +42,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('initiatives/{initiative}/dependencies/{dependency}', [DependencyController::class, 'destroy'])->name('dependencies.destroy');
 
     Route::post('initiatives/{initiative}/logs', [InitiativeLogController::class, 'store'])->name('initiative-logs.store');
+    Route::put('initiatives/{initiative}/logs/{log}', [InitiativeLogController::class, 'update'])->name('initiative-logs.update');
+    Route::delete('initiatives/{initiative}/logs/{log}', [InitiativeLogController::class, 'destroy'])->name('initiative-logs.destroy');
 });
 
 require __DIR__.'/settings.php';

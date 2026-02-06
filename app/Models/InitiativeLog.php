@@ -14,6 +14,7 @@ class InitiativeLog extends Model
         'initiative_id',
         'body',
         'type',
+        'user_id',
     ];
 
     /**
@@ -22,5 +23,13 @@ class InitiativeLog extends Model
     public function initiative(): BelongsTo
     {
         return $this->belongsTo(Initiative::class);
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

@@ -18,6 +18,7 @@ test('a log entry can be created for an initiative', function () {
     expect($userLogs)->toHaveCount(1);
     expect($userLogs->first()->body)->toBe('Started working on this feature.');
     expect($userLogs->first()->initiative_id)->toBe($initiative->id);
+    expect($userLogs->first()->user_id)->toBe($user->id);
 });
 
 test('log body is required', function () {
@@ -126,4 +127,104 @@ test('board index includes initiative logs', function () {
     $userLogs = collect($found['logs'])->where('type', 'user');
     expect($userLogs)->toHaveCount(1);
     expect($userLogs->first()['body'])->toBe('Test log entry');
+});
+
+test('owner can update their log body', function () {
+    $user = User::factory()->create();
+    $initiative = Initiative::factory()->create();
+    $log = $initiative->logs()->create([
+        'body' => 'Original body',
+        'user_id' => $user->id,
+    ]);
+
+    $this->actingAs($user)
+        ->put(route('initiative-logs.update', [$initiative, $log]), [
+            'body' => 'Updated body',
+        ])
+        ->assertRedirect(route('board'));
+
+    expect($log->refresh()->body)->toBe('Updated body');
+});
+
+test('owner can delete their log', function () {
+    $user = User::factory()->create();
+    $initiative = Initiative::factory()->create();
+    $log = $initiative->logs()->create([
+        'body' => 'To be deleted',
+        'user_id' => $user->id,
+    ]);
+
+    $this->actingAs($user)
+        ->delete(route('initiative-logs.destroy', [$initiative, $log]))
+        ->assertRedirect(route('board'));
+
+    expect(InitiativeLog::find($log->id))->toBeNull();
+});
+
+test('non-owner gets 403 on update', function () {
+    $owner = User::factory()->create();
+    $otherUser = User::factory()->create();
+    $initiative = Initiative::factory()->create();
+    $log = $initiative->logs()->create([
+        'body' => 'Owner log',
+        'user_id' => $owner->id,
+    ]);
+
+    $this->actingAs($otherUser)
+        ->put(route('initiative-logs.update', [$initiative, $log]), [
+            'body' => 'Hijacked',
+        ])
+        ->assertForbidden();
+
+    expect($log->refresh()->body)->toBe('Owner log');
+});
+
+test('non-owner gets 403 on delete', function () {
+    $owner = User::factory()->create();
+    $otherUser = User::factory()->create();
+    $initiative = Initiative::factory()->create();
+    $log = $initiative->logs()->create([
+        'body' => 'Owner log',
+        'user_id' => $owner->id,
+    ]);
+
+    $this->actingAs($otherUser)
+        ->delete(route('initiative-logs.destroy', [$initiative, $log]))
+        ->assertForbidden();
+
+    expect(InitiativeLog::find($log->id))->not->toBeNull();
+});
+
+test('system logs cannot be updated', function () {
+    $user = User::factory()->create();
+    $initiative = Initiative::factory()->create();
+    $log = $initiative->logs()->create([
+        'body' => 'System generated',
+        'type' => 'system',
+        'user_id' => null,
+    ]);
+
+    $this->actingAs($user)
+        ->put(route('initiative-logs.update', [$initiative, $log]), [
+            'body' => 'Hijacked',
+        ])
+        ->assertForbidden();
+
+    expect($log->refresh()->body)->toBe('System generated');
+});
+
+test('system logs cannot be deleted', function () {
+    $user = User::factory()->create();
+    $initiative = Initiative::factory()->create();
+    $log = $initiative->logs()->create([
+        'body' => 'System generated',
+        'type' => 'system',
+        'user_id' => null,
+    ]);
+
+    $this->actingAs($user)
+        ->delete(route('initiative-logs.destroy', [$initiative, $log]))
+        ->assertForbidden();
+
+    expect(InitiativeLog::find($log->id))->not->toBeNull();
 });

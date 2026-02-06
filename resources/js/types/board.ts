@@ -71,6 +71,7 @@ export type InitiativeLog = {
     id: string;
     body: string;
     type: 'user' | 'system';
+    user_id: number | null;
     created_at: string;
 };
 
