@@ -49,6 +49,7 @@ export type Team = {
     delivery_lead: string;
     product_owner: string;
     color: TeamColor;
+    sort_order: number;
     created_at: string;
     updated_at: string;
 };

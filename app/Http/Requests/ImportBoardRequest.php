@@ -19,6 +19,7 @@ class ImportBoardRequest extends FormRequest
             'teams.*.delivery_lead' => ['required', 'string', 'max:255'],
             'teams.*.product_owner' => ['required', 'string', 'max:255'],
             'teams.*.color' => ['nullable', 'string', 'in:slate,red,orange,amber,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose'],
+            'teams.*.sort_order' => ['nullable', 'integer', 'min:0'],
 
             'projects' => ['present', 'array'],
             'projects.*.id' => ['required', 'string'],

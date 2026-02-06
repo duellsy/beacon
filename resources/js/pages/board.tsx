@@ -7,9 +7,14 @@ import {
     useSensors,
 } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
+import {
+    SortableContext,
+    arrayMove,
+    horizontalListSortingStrategy,
+} from '@dnd-kit/sortable';
 import { Head, router, usePage } from '@inertiajs/react';
-import { Download, FolderOpen, MoreVertical, Pencil, Plus, Upload } from 'lucide-react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, Calendar, Columns3, Download, FolderOpen, MoreVertical, Pencil, Plus, Search, Upload, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BoardCell } from '@/components/board/board-cell';
 import { MobileTeamTabs } from '@/components/board/mobile-team-tabs';
 import { DependencyLines } from '@/components/board/dependency-lines';
@@ -19,6 +24,7 @@ import { ProjectModal } from '@/components/board/project-modal';
 import { TeamHeader } from '@/components/board/team-header';
 import { TeamModal } from '@/components/board/team-modal';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -32,10 +38,18 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Toggle } from '@/components/ui/toggle';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
 import AppLayout from '@/layouts/app-layout';
 import BoardController from '@/actions/App/Http/Controllers/BoardController';
 import InitiativeController from '@/actions/App/Http/Controllers/InitiativeController';
+import TeamController from '@/actions/App/Http/Controllers/TeamController';
 import type {
     Initiative,
     InitiativeStatus,
@@ -96,13 +110,79 @@ export default function Board() {
     const isMobile = useIsMobile();
     const [selectedTeamId, setSelectedTeamId] = useState('__all');
 
-    // All columns: unassigned + teams
+    // Search & filter state
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filterBlocked, setFilterBlocked] = useState(false);
+    const [filterOverdue, setFilterOverdue] = useState(false);
+
+    const hasActiveFilters = searchQuery !== '' || filterBlocked || filterOverdue;
+
+    const filteredInitiatives = useMemo(() => {
+        let result = initiatives;
+
+        if (searchQuery) {
+            const q = searchQuery.toLowerCase();
+            result = result.filter(
+                (i) =>
+                    i.title.toLowerCase().includes(q) ||
+                    (i.engineer_owner?.toLowerCase().includes(q) ?? false) ||
+                    (i.description?.toLowerCase().includes(q) ?? false),
+            );
+        }
+
+        if (filterBlocked) {
+            result = result.filter((i) => i.is_blocked);
+        }
+
+        if (filterOverdue) {
+            const todayStr = new Date().toLocaleDateString('en-CA', {
+                timeZone: 'Australia/Sydney',
+            });
+            result = result.filter(
+                (i) =>
+                    i.expected_date &&
+                    i.status !== 'done' &&
+                    i.expected_date <= todayStr,
+            );
+        }
+
+        return result;
+    }, [initiatives, searchQuery, filterBlocked, filterOverdue]);
+
+    // Column layout toggle (fit to screen vs fixed-width scrollable)
+    const [fitColumns, setFitColumns] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('board-fit-columns') === 'true';
+        }
+        return false;
+    });
+    const handleFitColumnsToggle = (pressed: boolean) => {
+        setFitColumns(pressed);
+        localStorage.setItem('board-fit-columns', String(pressed));
+    };
+
+    // Team column order (optimistic reordering)
+    const [teamOrder, setTeamOrder] = useState(() => teams.map((t) => t.id));
+
+    useEffect(() => {
+        setTeamOrder(teams.map((t) => t.id));
+    }, [teams]);
+
+    const orderedTeams = useMemo(
+        () => teamOrder.map((id) => teams.find((t) => t.id === id)).filter(Boolean) as Team[],
+        [teamOrder, teams],
+    );
+
+    // Team columns only (unassigned is a separate section)
     const columns = useMemo(
-        () => [
-            ...teams.map((t) => ({ id: t.id, team: t })),
-            { id: 'unassigned', team: null as Team | null },
-        ],
-        [teams],
+        () => orderedTeams.map((t) => ({ id: t.id, team: t })),
+        [orderedTeams],
+    );
+
+    // Unassigned initiatives (all statuses, shown as backlog)
+    const unassignedInitiatives = useMemo(
+        () => filteredInitiatives.filter((i) => i.team_id === null),
+        [filteredInitiatives],
     );
 
     // Compute highlighted initiative IDs when hovering
@@ -137,26 +217,26 @@ export default function Board() {
     // Get initiatives for a specific cell
     const getCellInitiatives = useCallback(
         (columnId: string, status: InitiativeStatus) =>
-            initiatives.filter(
+            filteredInitiatives.filter(
                 (i) =>
                     i.status === status &&
                     (columnId === 'unassigned'
                         ? i.team_id === null
                         : i.team_id === columnId),
             ),
-        [initiatives],
+        [filteredInitiatives],
     );
 
     // Get initiatives for a mobile swimlane (filtered by selected team)
     const getMobileInitiatives = useCallback(
         (status: InitiativeStatus) =>
-            initiatives.filter((i) => {
+            filteredInitiatives.filter((i) => {
                 if (i.status !== status) return false;
                 if (selectedTeamId === '__all') return true;
                 if (selectedTeamId === 'unassigned') return i.team_id === null;
                 return i.team_id === selectedTeamId;
             }),
-        [initiatives, selectedTeamId],
+        [filteredInitiatives, selectedTeamId],
     );
 
     // Drag handlers
@@ -176,9 +256,20 @@ export default function Board() {
             ?.initiative as Initiative;
         if (!initiative) return;
 
-        const [targetTeamId, targetStatus] = (
-            over.id as string
-        ).split(':');
+        const overId = over.id as string;
+
+        // Backlog drop target: unassign team, keep current status
+        if (overId === 'backlog') {
+            if (initiative.team_id === null) return;
+            router.patch(
+                InitiativeController.move.url(initiative.id),
+                { team_id: null, status: initiative.status },
+                { preserveScroll: true },
+            );
+            return;
+        }
+
+        const [targetTeamId, targetStatus] = overId.split(':');
 
         const newTeamId =
             targetTeamId === '__keep'
@@ -198,6 +289,19 @@ export default function Board() {
             { team_id: newTeamId, status: newStatus },
             { preserveScroll: true },
         );
+    };
+
+    // Team column reorder handler
+    const handleTeamDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (!over || active.id === over.id) return;
+
+        const oldIndex = teamOrder.indexOf(active.id as string);
+        const newIndex = teamOrder.indexOf(over.id as string);
+        const newOrder = arrayMove(teamOrder, oldIndex, newIndex);
+
+        setTeamOrder(newOrder);
+        router.post(TeamController.reorder.url(), { ids: newOrder }, { preserveScroll: true });
     };
 
     // Export
@@ -357,6 +461,10 @@ export default function Board() {
                                         <Upload className="size-4" />
                                         Import
                                     </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleFitColumnsToggle(!fitColumns)}>
+                                        <Columns3 className="size-4" />
+                                        {fitColumns ? 'Fixed-width columns' : 'Fit to screen'}
+                                    </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         ) : (
@@ -390,9 +498,78 @@ export default function Board() {
                                     <Upload className="size-3.5" />
                                     Import
                                 </Button>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Toggle
+                                                variant="outline"
+                                                size="sm"
+                                                pressed={fitColumns}
+                                                onPressedChange={handleFitColumnsToggle}
+                                                aria-label="Fit columns to screen"
+                                            >
+                                                <Columns3 className="size-3.5" />
+                                            </Toggle>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            {fitColumns ? 'Switch to fixed-width columns' : 'Fit columns to screen'}
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
                             </>
                         )}
                     </div>
+                </div>
+
+                {/* Search & Filters */}
+                <div className="flex shrink-0 items-center gap-2 border-b px-4 py-2">
+                    <div className="relative flex-1 md:max-w-xs">
+                        <Search className="text-muted-foreground pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2" />
+                        <Input
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Search initiatives..."
+                            className="h-8 pl-8 text-sm"
+                        />
+                    </div>
+                    <Button
+                        variant={filterBlocked ? 'default' : 'outline'}
+                        size="sm"
+                        className="h-8 gap-1 text-xs"
+                        onClick={() => setFilterBlocked(!filterBlocked)}
+                    >
+                        <AlertTriangle className="size-3" />
+                        Blocked
+                    </Button>
+                    <Button
+                        variant={filterOverdue ? 'default' : 'outline'}
+                        size="sm"
+                        className="h-8 gap-1 text-xs"
+                        onClick={() => setFilterOverdue(!filterOverdue)}
+                    >
+                        <Calendar className="size-3" />
+                        Overdue
+                    </Button>
+                    {hasActiveFilters && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 gap-1 text-xs"
+                            onClick={() => {
+                                setSearchQuery('');
+                                setFilterBlocked(false);
+                                setFilterOverdue(false);
+                            }}
+                        >
+                            <X className="size-3" />
+                            Clear
+                        </Button>
+                    )}
+                    {hasActiveFilters && (
+                        <span className="text-muted-foreground text-xs tabular-nums">
+                            {filteredInitiatives.length} of {initiatives.length}
+                        </span>
+                    )}
                 </div>
 
                 {/* Board */}
@@ -472,6 +649,49 @@ export default function Board() {
                                             </div>
                                         );
                                     })}
+
+                                    {/* Backlog (unassigned) */}
+                                    {(selectedTeamId === '__all' || selectedTeamId === 'unassigned') && (
+                                        <div>
+                                            <div className="mb-2 flex items-center justify-between">
+                                                <span className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+                                                    Backlog
+                                                </span>
+                                                <span className="text-muted-foreground text-xs tabular-nums">
+                                                    {unassignedInitiatives.length}
+                                                </span>
+                                            </div>
+                                            <BoardCell
+                                                id="backlog"
+                                                onAddInitiative={() =>
+                                                    setInitiativeModal({
+                                                        open: true,
+                                                        initiative: null,
+                                                        defaultTeamId: null,
+                                                        defaultStatus: 'upcoming',
+                                                    })
+                                                }
+                                                isMobile
+                                            >
+                                                {unassignedInitiatives.map((initiative) => (
+                                                    <InitiativeCard
+                                                        key={initiative.id}
+                                                        initiative={initiative}
+                                                        onOpen={(init) =>
+                                                            setInitiativeModal({
+                                                                open: true,
+                                                                initiative: init,
+                                                                defaultTeamId: null,
+                                                                defaultStatus: null,
+                                                            })
+                                                        }
+                                                        onHover={() => {}}
+                                                        isHighlighted={false}
+                                                    />
+                                                ))}
+                                            </BoardCell>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -480,30 +700,38 @@ export default function Board() {
                         <div className="flex-1 overflow-auto">
                             <div
                                 ref={contentRef}
-                                className="relative min-w-fit p-4"
+                                className="relative p-4"
+                                style={{ minWidth: fitColumns ? undefined : 'fit-content' }}
                             >
                                 <div
                                     className="grid gap-2"
                                     style={{
-                                        gridTemplateColumns: `90px repeat(${gridCols}, 280px)`,
+                                        gridTemplateColumns: fitColumns
+                                            ? `90px repeat(${gridCols}, minmax(180px, 1fr))`
+                                            : `90px repeat(${gridCols}, 280px)`,
                                     }}
                                 >
                                     {/* Row 1: Header row */}
                                     {/* Corner spacer */}
                                     <div />
-                                    {/* Team headers */}
-                                    {columns.map((col) => (
-                                        <TeamHeader
-                                            key={col.id}
-                                            team={col.team}
-                                            onEditTeam={(t) =>
-                                                setTeamModal({
-                                                    open: true,
-                                                    team: t,
-                                                })
-                                            }
-                                        />
-                                    ))}
+                                    {/* Team headers (sortable) */}
+                                    <DndContext onDragEnd={handleTeamDragEnd}>
+                                        <SortableContext items={teamOrder} strategy={horizontalListSortingStrategy}>
+                                            {columns.map((col) => (
+                                                <TeamHeader
+                                                    key={col.id}
+                                                    team={col.team}
+                                                    sortableId={col.id}
+                                                    onEditTeam={(t) =>
+                                                        setTeamModal({
+                                                            open: true,
+                                                            team: t,
+                                                        })
+                                                    }
+                                                />
+                                            ))}
+                                        </SortableContext>
+                                    </DndContext>
 
                                     {/* Status rows */}
                                     {STATUSES.map((status) => (
@@ -528,10 +756,7 @@ export default function Board() {
                                                         setInitiativeModal({
                                                             open: true,
                                                             initiative: null,
-                                                            defaultTeamId:
-                                                                col.id === 'unassigned'
-                                                                    ? null
-                                                                    : col.id,
+                                                            defaultTeamId: col.id,
                                                             defaultStatus: status.key,
                                                         })
                                                     }
@@ -541,34 +766,19 @@ export default function Board() {
                                                         status.key,
                                                     ).map((initiative) => (
                                                         <InitiativeCard
-                                                            key={
-                                                                initiative.id
-                                                            }
-                                                            initiative={
-                                                                initiative
-                                                            }
+                                                            key={initiative.id}
+                                                            initiative={initiative}
                                                             teamColor={col.team?.color}
-                                                            onOpen={(
-                                                                init,
-                                                            ) =>
-                                                                setInitiativeModal(
-                                                                    {
-                                                                        open: true,
-                                                                        initiative:
-                                                                            init,
-                                                                        defaultTeamId:
-                                                                            null,
-                                                                        defaultStatus:
-                                                                            null,
-                                                                    },
-                                                                )
+                                                            onOpen={(init) =>
+                                                                setInitiativeModal({
+                                                                    open: true,
+                                                                    initiative: init,
+                                                                    defaultTeamId: null,
+                                                                    defaultStatus: null,
+                                                                })
                                                             }
-                                                            onHover={
-                                                                setHoveredInitiativeId
-                                                            }
-                                                            isHighlighted={highlightedInitiativeIds.has(
-                                                                initiative.id,
-                                                            )}
+                                                            onHover={setHoveredInitiativeId}
+                                                            isHighlighted={highlightedInitiativeIds.has(initiative.id)}
                                                         />
                                                     ))}
                                                 </BoardCell>
@@ -577,9 +787,52 @@ export default function Board() {
                                     ))}
                                 </div>
 
+                                {/* Backlog (unassigned initiatives) */}
+                                <div className="mt-4 border-t pt-4">
+                                        <div className="mb-2 flex items-center justify-between">
+                                            <span className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+                                                Backlog (Unassigned)
+                                            </span>
+                                            <span className="text-muted-foreground text-xs tabular-nums">
+                                                {unassignedInitiatives.length}
+                                            </span>
+                                        </div>
+                                        <BoardCell
+                                            id="backlog"
+                                            onAddInitiative={() =>
+                                                setInitiativeModal({
+                                                    open: true,
+                                                    initiative: null,
+                                                    defaultTeamId: null,
+                                                    defaultStatus: 'upcoming',
+                                                })
+                                            }
+                                        >
+                                            <div className="flex flex-wrap gap-2">
+                                                {unassignedInitiatives.map((initiative) => (
+                                                    <div key={initiative.id} className="w-[260px]">
+                                                        <InitiativeCard
+                                                            initiative={initiative}
+                                                            onOpen={(init) =>
+                                                                setInitiativeModal({
+                                                                    open: true,
+                                                                    initiative: init,
+                                                                    defaultTeamId: null,
+                                                                    defaultStatus: null,
+                                                                })
+                                                            }
+                                                            onHover={setHoveredInitiativeId}
+                                                            isHighlighted={highlightedInitiativeIds.has(initiative.id)}
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </BoardCell>
+                                </div>
+
                                 {/* Dependency lines SVG overlay */}
                                 <DependencyLines
-                                    initiatives={initiatives}
+                                    initiatives={filteredInitiatives}
                                     hoveredId={hoveredInitiativeId}
                                     contentRef={contentRef}
                                 />

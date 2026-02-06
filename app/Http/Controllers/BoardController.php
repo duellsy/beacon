@@ -17,7 +17,7 @@ class BoardController extends Controller
 {
     public function index(Request $request): Response
     {
-        $teams = Team::query()->orderBy('name')->get();
+        $teams = Team::query()->orderBy('sort_order')->get();
         $projects = Project::query()->orderBy('name')->get();
 
         $projectFilter = $request->query('project');
@@ -46,7 +46,7 @@ class BoardController extends Controller
 
     public function export(): JsonResponse
     {
-        $teams = Team::query()->orderBy('name')->get();
+        $teams = Team::query()->orderBy('sort_order')->get();
         $projects = Project::query()->orderBy('name')->get();
 
         $initiatives = Initiative::query()
@@ -87,13 +87,14 @@ class BoardController extends Controller
 
             $teamIds = collect($validated['teams'])->pluck('id')->all();
 
-            foreach ($validated['teams'] as $teamData) {
+            foreach ($validated['teams'] as $index => $teamData) {
                 $team = new Team;
                 $team->id = $teamData['id'];
                 $team->name = $teamData['name'];
                 $team->delivery_lead = $teamData['delivery_lead'];
                 $team->product_owner = $teamData['product_owner'];
                 $team->color = $teamData['color'] ?? 'blue';
+                $team->sort_order = $teamData['sort_order'] ?? $index;
                 $team->save();
             }
 

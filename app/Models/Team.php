@@ -17,6 +17,7 @@ class Team extends Model
         'delivery_lead',
         'product_owner',
         'color',
+        'sort_order',
     ];
 
     /**
