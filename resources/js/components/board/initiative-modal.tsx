@@ -1,8 +1,9 @@
 import { router, useForm } from '@inertiajs/react';
 import { ExternalLink, Pencil, Trash2, X } from 'lucide-react';
 import type { FormEventHandler } from 'react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Markdown from 'react-markdown';
+import TurndownService from 'turndown';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -212,6 +213,28 @@ function EditPanel({
     const [logBody, setLogBody] = useState('');
     const [submittingLog, setSubmittingLog] = useState(false);
 
+    const handleLogPaste = useCallback(
+        (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+            const html = e.clipboardData.getData('text/html');
+            if (!html) return;
+
+            e.preventDefault();
+            const turndown = new TurndownService({
+                headingStyle: 'atx',
+                bulletListMarker: '-',
+            });
+            const markdown = turndown.turndown(html);
+
+            const textarea = e.currentTarget;
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const before = logBody.slice(0, start);
+            const after = logBody.slice(end);
+            setLogBody(before + markdown + after);
+        },
+        [logBody],
+    );
+
     const form = useForm({
         title: '',
         description: '',
@@ -363,6 +386,7 @@ function EditPanel({
                 <Textarea
                     value={logBody}
                     onChange={(e) => setLogBody(e.target.value)}
+                    onPaste={handleLogPaste}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter' && e.metaKey) {
                             e.preventDefault();
