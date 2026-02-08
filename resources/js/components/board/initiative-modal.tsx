@@ -33,9 +33,7 @@ import type {
     Initiative,
     InitiativeStatus,
     Project,
-    RagStatus,
     Team,
-    Todo,
 } from '@/types/board';
 import { RAG_STATUSES, STATUSES } from '@/types/board';
 
@@ -133,6 +131,7 @@ function CreateDialog({
             });
             form.clearErrors();
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, defaultTeamId, defaultStatus]);
 
     const handleSubmit: FormEventHandler = (e) => {
@@ -285,6 +284,7 @@ function EditPanel({
             setTodoDeadline('');
             setEditingTodoId(null);
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, initiative]);
 
     // Clear assignee when team changes in form

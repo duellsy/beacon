@@ -37,6 +37,7 @@ export function ProjectModal({ open, onClose, project }: ProjectModalProps) {
             form.clearErrors();
             setConfirmDelete(false);
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, project]);
 
     const handleSubmit: FormEventHandler = (e) => {

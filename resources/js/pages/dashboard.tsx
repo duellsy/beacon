@@ -68,7 +68,6 @@ function TodosSection({ todos }: { todos: DashboardTodo[] }) {
     const [showAdd, setShowAdd] = useState(false);
     const [newBody, setNewBody] = useState('');
     const [newDeadline, setNewDeadline] = useState('');
-    const [newInitiativeId, setNewInitiativeId] = useState('');
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editBody, setEditBody] = useState('');
     const [editDeadline, setEditDeadline] = useState('');

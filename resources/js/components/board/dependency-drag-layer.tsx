@@ -17,8 +17,30 @@ type DragState = {
 export function DependencyDragLayer({ contentRef }: DependencyDragLayerProps) {
     const [drag, setDrag] = useState<DragState | null>(null);
     const [hoveredTargetId, setHoveredTargetId] = useState<string | null>(null);
-    const dragRef = useRef(drag);
-    dragRef.current = drag;
+    const [svgSize, setSvgSize] = useState<{ width: string; height: string }>({ width: '100%', height: '100%' });
+    const dragRef = useRef<DragState | null>(null);
+
+    useEffect(() => {
+        dragRef.current = drag;
+    }, [drag]);
+
+    // Track SVG dimensions from contentRef
+    useEffect(() => {
+        const el = contentRef.current;
+        if (!el || !drag) return;
+
+        const update = () => {
+            setSvgSize({
+                width: `${el.scrollWidth}px`,
+                height: `${el.scrollHeight}px`,
+            });
+        };
+        update();
+
+        const observer = new ResizeObserver(update);
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, [contentRef, drag]);
 
     const getContentOffset = useCallback(() => {
         if (!contentRef.current) return { x: 0, y: 0 };
@@ -107,16 +129,17 @@ export function DependencyDragLayer({ contentRef }: DependencyDragLayerProps) {
 
     // Highlight target card
     useEffect(() => {
-        if (!contentRef.current) return;
+        const el = contentRef.current;
+        if (!el) return;
 
         // Remove previous highlight
-        contentRef.current.querySelectorAll('[data-dep-target-highlight]').forEach(el => {
-            el.removeAttribute('data-dep-target-highlight');
-            (el as HTMLElement).style.removeProperty('box-shadow');
+        el.querySelectorAll('[data-dep-target-highlight]').forEach(node => {
+            node.removeAttribute('data-dep-target-highlight');
+            (node as HTMLElement).style.removeProperty('box-shadow');
         });
 
         if (hoveredTargetId && drag) {
-            const targetEl = contentRef.current.querySelector(`[data-initiative-id="${hoveredTargetId}"]`) as HTMLElement | null;
+            const targetEl = el.querySelector(`[data-initiative-id="${hoveredTargetId}"]`) as HTMLElement | null;
             if (targetEl) {
                 targetEl.setAttribute('data-dep-target-highlight', 'true');
                 targetEl.style.boxShadow = '0 0 0 2px #3b82f6, 0 0 8px rgba(59, 130, 246, 0.3)';
@@ -124,9 +147,9 @@ export function DependencyDragLayer({ contentRef }: DependencyDragLayerProps) {
         }
 
         return () => {
-            contentRef.current?.querySelectorAll('[data-dep-target-highlight]').forEach(el => {
-                el.removeAttribute('data-dep-target-highlight');
-                (el as HTMLElement).style.removeProperty('box-shadow');
+            el.querySelectorAll('[data-dep-target-highlight]').forEach(node => {
+                node.removeAttribute('data-dep-target-highlight');
+                (node as HTMLElement).style.removeProperty('box-shadow');
             });
         };
     }, [hoveredTargetId, drag, contentRef]);
@@ -137,8 +160,8 @@ export function DependencyDragLayer({ contentRef }: DependencyDragLayerProps) {
         <svg
             className="pointer-events-none absolute inset-0 z-30"
             style={{
-                width: contentRef.current?.scrollWidth ?? '100%',
-                height: contentRef.current?.scrollHeight ?? '100%',
+                width: svgSize.width,
+                height: svgSize.height,
             }}
         >
             <defs>

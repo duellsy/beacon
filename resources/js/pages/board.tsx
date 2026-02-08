@@ -77,21 +77,19 @@ export default function Board() {
     const pageProps = usePage<{
         props: BoardProps & { todo_suggestions?: FlashTodoSuggestion[] };
     }>().props as unknown as BoardProps & { todo_suggestions?: FlashTodoSuggestion[] };
-    const { board, boards, teams, initiatives, projects, currentProjectId } = pageProps;
+    const { board, teams, initiatives, projects, currentProjectId } = pageProps;
     const [flashSuggestions, setFlashSuggestions] = useState<FlashTodoSuggestion[]>([]);
-    const [lastSuggestionKey, setLastSuggestionKey] = useState<string>('');
+    const lastSuggestionKeyRef = useRef<string>('');
 
     // Capture flash suggestions whenever props change
-    useEffect(() => {
-        const suggestions = pageProps.todo_suggestions;
-        if (suggestions && suggestions.length > 0) {
-            const key = JSON.stringify(suggestions);
-            if (key !== lastSuggestionKey) {
-                setFlashSuggestions(suggestions);
-                setLastSuggestionKey(key);
-            }
+    const suggestions = pageProps.todo_suggestions;
+    if (suggestions && suggestions.length > 0) {
+        const key = JSON.stringify(suggestions);
+        if (key !== lastSuggestionKeyRef.current) {
+            lastSuggestionKeyRef.current = key;
+            setFlashSuggestions(suggestions);
         }
-    }, [pageProps.todo_suggestions, lastSuggestionKey]);
+    }
 
     const contentRef = useRef<HTMLDivElement>(null);
 
@@ -129,6 +127,7 @@ export default function Board() {
                 : window.location.pathname;
             window.history.replaceState({}, '', newUrl);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Team detail sheet state
@@ -231,10 +230,13 @@ export default function Board() {
 
     // Team column order (optimistic reordering)
     const [teamOrder, setTeamOrder] = useState(() => teams.map((t) => t.id));
+    const prevTeamIdsRef = useRef<string>(JSON.stringify(teams.map((t) => t.id)));
 
-    useEffect(() => {
+    const currentTeamIds = JSON.stringify(teams.map((t) => t.id));
+    if (currentTeamIds !== prevTeamIdsRef.current) {
+        prevTeamIdsRef.current = currentTeamIds;
         setTeamOrder(teams.map((t) => t.id));
-    }, [teams]);
+    }
 
     const orderedTeams = useMemo(
         () => teamOrder.map((id) => teams.find((t) => t.id === id)).filter(Boolean) as Team[],

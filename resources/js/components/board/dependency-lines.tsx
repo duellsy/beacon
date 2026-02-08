@@ -57,6 +57,7 @@ export function DependencyLines({
     contentRef,
 }: DependencyLinesProps) {
     const [lines, setLines] = useState<Line[]>([]);
+    const [svgSize, setSvgSize] = useState<{ width: string; height: string }>({ width: '100%', height: '100%' });
     const svgRef = useRef<SVGSVGElement>(null);
 
     const calculateLines = useCallback(() => {
@@ -122,26 +123,44 @@ export function DependencyLines({
     }, [initiatives, contentRef]);
 
     useEffect(() => {
-        calculateLines();
+        const el = contentRef.current;
 
-        const observer = new ResizeObserver(() => calculateLines());
-        if (contentRef.current) {
-            observer.observe(contentRef.current);
+        const updateSize = () => {
+            if (el) {
+                setSvgSize({
+                    width: `${el.scrollWidth}px`,
+                    height: `${el.scrollHeight}px`,
+                });
+            }
+        };
+
+        const recalc = () => {
+            calculateLines();
+            updateSize();
+        };
+
+        // Initial calculation via rAF to avoid synchronous setState in effect
+        const raf = requestAnimationFrame(recalc);
+
+        const observer = new ResizeObserver(recalc);
+        if (el) {
+            observer.observe(el);
         }
 
-        const scrollParent = contentRef.current?.parentElement;
-        scrollParent?.addEventListener('scroll', calculateLines);
-        window.addEventListener('resize', calculateLines);
+        const scrollParent = el?.parentElement;
+        scrollParent?.addEventListener('scroll', recalc);
+        window.addEventListener('resize', recalc);
 
-        const interval = setInterval(calculateLines, 200);
+        const interval = setInterval(recalc, 200);
 
         return () => {
+            cancelAnimationFrame(raf);
             observer.disconnect();
-            scrollParent?.removeEventListener('scroll', calculateLines);
-            window.removeEventListener('resize', calculateLines);
+            scrollParent?.removeEventListener('scroll', recalc);
+            window.removeEventListener('resize', recalc);
             clearInterval(interval);
         };
-    }, [calculateLines]);
+    }, [calculateLines, contentRef]);
 
     const isRelated = (line: Line) =>
         hoveredId !== null &&
@@ -152,8 +171,8 @@ export function DependencyLines({
             ref={svgRef}
             className="pointer-events-none absolute inset-0 z-20"
             style={{
-                width: contentRef.current?.scrollWidth ?? '100%',
-                height: contentRef.current?.scrollHeight ?? '100%',
+                width: svgSize.width,
+                height: svgSize.height,
             }}
         >
             <defs>

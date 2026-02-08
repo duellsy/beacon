@@ -62,6 +62,7 @@ export function TeamModal({ open, onClose, team, boardId }: TeamModalProps) {
             form.clearErrors();
             setConfirmDelete(false);
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, team]);
 
     const addMember = () => {
