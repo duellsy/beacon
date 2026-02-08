@@ -6,7 +6,8 @@
       "Bash(find:*)",
       "Bash(npm run build:*)",
       "Bash(npx tsc:*)",
-      "mcp__laravel-boost__database-schema"
+      "mcp__laravel-boost__database-schema",
+      "mcp__laravel-boost__application-info"
     ]
   },
   "enableAllProjectMcpServers": true,

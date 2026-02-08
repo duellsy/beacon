@@ -23,8 +23,10 @@ class InitiativeController extends Controller
     {
         $oldRagStatus = $initiative->rag_status;
         $oldStatus = $initiative->status;
+        $oldExpectedDate = $initiative->expected_date?->toDateString();
         $newRagStatus = $request->validated('rag_status');
         $newStatus = $request->validated('status') ?? $initiative->status;
+        $newExpectedDate = $request->validated('expected_date');
 
         // Clear assignee if team changed
         $newTeamId = $request->validated('team_id');
@@ -45,7 +47,14 @@ class InitiativeController extends Controller
             ]);
         }
 
-        $suggestions = $this->matchRules($initiative, $oldRagStatus, $newRagStatus, $oldStatus, $newStatus);
+        $suggestions = $this->matchRules($initiative, [
+            'old_rag' => $oldRagStatus,
+            'new_rag' => $newRagStatus,
+            'old_status' => $oldStatus,
+            'new_status' => $newStatus,
+            'old_expected_date' => $oldExpectedDate,
+            'new_expected_date' => $newExpectedDate,
+        ]);
 
         if (! empty($suggestions)) {
             return back()->with('todo_suggestions', $suggestions);
@@ -71,7 +80,14 @@ class InitiativeController extends Controller
         $initiative->update($data);
 
         $newStatus = $initiative->status;
-        $suggestions = $this->matchRules($initiative, null, null, $oldStatus, $newStatus);
+        $suggestions = $this->matchRules($initiative, [
+            'old_rag' => null,
+            'new_rag' => null,
+            'old_status' => $oldStatus,
+            'new_status' => $newStatus,
+            'old_expected_date' => null,
+            'new_expected_date' => null,
+        ]);
 
         if (! empty($suggestions)) {
             return back()->with('todo_suggestions', $suggestions);
@@ -90,9 +106,10 @@ class InitiativeController extends Controller
     }
 
     /**
+     * @param  array{old_rag: ?string, new_rag: ?string, old_status: ?string, new_status: ?string, old_expected_date: ?string, new_expected_date: ?string}  $context
      * @return list<array{rule_id: string, initiative_id: string, initiative_title: string, body: string, deadline: string, source: string}>
      */
-    private function matchRules(Initiative $initiative, ?string $oldRag, ?string $newRag, ?string $oldStatus, ?string $newStatus): array
+    private function matchRules(Initiative $initiative, array $context): array
     {
         $rules = TodoRule::query()
             ->where('user_id', auth()->id())
@@ -103,19 +120,17 @@ class InitiativeController extends Controller
         $today = Carbon::today('Australia/Melbourne');
 
         foreach ($rules as $rule) {
-            $matched = false;
-
-            if ($rule->trigger_type === 'rag_status_changed' && $oldRag !== $newRag) {
-                $fromMatch = $rule->trigger_from === null || $rule->trigger_from === $oldRag;
-                $toMatch = $rule->trigger_to === $newRag;
-                $matched = $fromMatch && $toMatch;
-            }
-
-            if ($rule->trigger_type === 'status_changed' && $oldStatus !== $newStatus) {
-                $fromMatch = $rule->trigger_from === null || $rule->trigger_from === $oldStatus;
-                $toMatch = $rule->trigger_to === $newStatus;
-                $matched = $fromMatch && $toMatch;
-            }
+            $matched = match ($rule->trigger_type) {
+                'rag_status_changed' => $this->matchRagStatusChanged($rule, $context),
+                'status_changed' => $this->matchStatusChanged($rule, $context),
+                'deadline_changed' => $this->matchDeadlineChanged($context),
+                'deadline_overdue' => $this->matchDeadlineOverdue($initiative),
+                'deadline_missing' => $this->matchDeadlineMissing($initiative, $context),
+                'no_rag_set' => $this->matchNoRagSet($initiative, $context),
+                'status_changed_notify_dependents' => $this->matchStatusChangedNotifyDependents($initiative, $context),
+                'moved_to_done' => $this->matchMovedToDone($context),
+                default => false,
+            };
 
             if ($matched) {
                 $body = str_replace('{title}', $initiative->title, $rule->suggested_body);
@@ -131,5 +146,93 @@ class InitiativeController extends Controller
         }
 
         return $suggestions;
+    }
+
+    /**
+     * @param  array{old_rag: ?string, new_rag: ?string}  $context
+     */
+    private function matchRagStatusChanged(TodoRule $rule, array $context): bool
+    {
+        if ($context['old_rag'] === $context['new_rag']) {
+            return false;
+        }
+
+        $fromMatch = $rule->trigger_from === null || $rule->trigger_from === $context['old_rag'];
+        $toMatch = $rule->trigger_to === $context['new_rag'];
+
+        return $fromMatch && $toMatch;
+    }
+
+    /**
+     * @param  array{old_status: ?string, new_status: ?string}  $context
+     */
+    private function matchStatusChanged(TodoRule $rule, array $context): bool
+    {
+        if ($context['old_status'] === $context['new_status']) {
+            return false;
+        }
+
+        $fromMatch = $rule->trigger_from === null || $rule->trigger_from === $context['old_status'];
+        $toMatch = $rule->trigger_to === $context['new_status'];
+
+        return $fromMatch && $toMatch;
+    }
+
+    /**
+     * @param  array{old_expected_date: ?string, new_expected_date: ?string}  $context
+     */
+    private function matchDeadlineChanged(array $context): bool
+    {
+        return $context['old_expected_date'] !== null
+            && $context['new_expected_date'] !== null
+            && $context['old_expected_date'] !== $context['new_expected_date'];
+    }
+
+    private function matchDeadlineOverdue(Initiative $initiative): bool
+    {
+        return $initiative->status !== 'done'
+            && $initiative->expected_date !== null
+            && $initiative->expected_date->isPast();
+    }
+
+    /**
+     * @param  array{old_status: ?string, new_status: ?string}  $context
+     */
+    private function matchDeadlineMissing(Initiative $initiative, array $context): bool
+    {
+        return $context['old_status'] !== $context['new_status']
+            && $context['new_status'] === 'in_progress'
+            && $initiative->expected_date === null;
+    }
+
+    /**
+     * @param  array{old_status: ?string, new_status: ?string}  $context
+     */
+    private function matchNoRagSet(Initiative $initiative, array $context): bool
+    {
+        return $context['old_status'] !== $context['new_status']
+            && $context['new_status'] === 'in_progress'
+            && $initiative->rag_status === null;
+    }
+
+    /**
+     * @param  array{old_status: ?string, new_status: ?string}  $context
+     */
+    private function matchStatusChangedNotifyDependents(Initiative $initiative, array $context): bool
+    {
+        if ($context['old_status'] === $context['new_status']) {
+            return false;
+        }
+
+        return $initiative->dependents()->exists();
+    }
+
+    /**
+     * @param  array{old_status: ?string, new_status: ?string}  $context
+     */
+    private function matchMovedToDone(array $context): bool
+    {
+        return $context['old_status'] !== 'done'
+            && $context['new_status'] === 'done';
     }
 }

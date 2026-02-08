@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { TodoRule } from '@/types/board';
+import type { TodoRule, TodoRuleTriggerType } from '@/types/board';
 
 type Props = {
     rules: TodoRule[];
@@ -32,10 +32,16 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Suggestion Rules', href: '/todo-rules' },
 ];
 
-const TRIGGER_TYPES = [
-    { key: 'rag_status_changed', label: 'RAG Status Changed' },
-    { key: 'status_changed', label: 'Status Changed' },
-] as const;
+const TRIGGER_TYPES: { key: TodoRuleTriggerType; label: string; description: string; hasTransition: boolean }[] = [
+    { key: 'rag_status_changed', label: 'RAG Status Changed', description: 'When RAG status changes between values', hasTransition: true },
+    { key: 'status_changed', label: 'Status Changed', description: 'When initiative status changes between values', hasTransition: true },
+    { key: 'deadline_changed', label: 'Deadline Changed', description: 'When due date is modified', hasTransition: false },
+    { key: 'deadline_overdue', label: 'Deadline Overdue', description: 'When an initiative is past due and not done', hasTransition: false },
+    { key: 'deadline_missing', label: 'Deadline Missing', description: 'When moved to In Progress with no due date', hasTransition: false },
+    { key: 'no_rag_set', label: 'No RAG Set', description: 'When moved to In Progress with no RAG status', hasTransition: false },
+    { key: 'status_changed_notify_dependents', label: 'Status Changed (Has Dependents)', description: 'When status changes and other initiatives depend on this one', hasTransition: false },
+    { key: 'moved_to_done', label: 'Moved to Done', description: 'When an initiative is marked as done', hasTransition: false },
+];
 
 const RAG_OPTIONS = [
     { key: '', label: 'Any' },
@@ -52,9 +58,14 @@ const STATUS_OPTIONS = [
 ];
 
 function triggerDescription(rule: TodoRule): string {
+    const triggerType = TRIGGER_TYPES.find((t) => t.key === rule.trigger_type);
+    if (!triggerType?.hasTransition) {
+        return triggerType?.label ?? rule.trigger_type;
+    }
+
     const typeLabel = rule.trigger_type === 'rag_status_changed' ? 'RAG' : 'Status';
     const from = rule.trigger_from ? capitalize(rule.trigger_from.replace('_', ' ')) : 'Any';
-    const to = capitalize(rule.trigger_to.replace('_', ' '));
+    const to = rule.trigger_to ? capitalize(rule.trigger_to.replace('_', ' ')) : 'Any';
     return `${typeLabel}: ${from} → ${to}`;
 }
 
@@ -62,8 +73,12 @@ function capitalize(s: string): string {
     return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+function hasTransition(triggerType: TodoRuleTriggerType): boolean {
+    return triggerType === 'rag_status_changed' || triggerType === 'status_changed';
+}
+
 type FormData = {
-    trigger_type: 'rag_status_changed' | 'status_changed';
+    trigger_type: TodoRuleTriggerType;
     trigger_from: string;
     trigger_to: string;
     suggested_body: string;
@@ -94,12 +109,31 @@ export default function TodoRules({ rules }: Props) {
         setForm({
             trigger_type: rule.trigger_type,
             trigger_from: rule.trigger_from ?? '',
-            trigger_to: rule.trigger_to,
+            trigger_to: rule.trigger_to ?? '',
             suggested_body: rule.suggested_body,
             suggested_deadline_days: rule.suggested_deadline_days,
             is_active: rule.is_active,
         });
         setModal({ open: true, rule });
+    };
+
+    const handleTriggerTypeChange = (v: string) => {
+        const triggerType = v as TodoRuleTriggerType;
+        if (hasTransition(triggerType)) {
+            setForm({
+                ...form,
+                trigger_type: triggerType,
+                trigger_from: '',
+                trigger_to: triggerType === 'rag_status_changed' ? 'red' : 'done',
+            });
+        } else {
+            setForm({
+                ...form,
+                trigger_type: triggerType,
+                trigger_from: '',
+                trigger_to: '',
+            });
+        }
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -108,6 +142,7 @@ export default function TodoRules({ rules }: Props) {
         const data = {
             ...form,
             trigger_from: form.trigger_from || null,
+            trigger_to: form.trigger_to || null,
         };
 
         if (modal.rule) {
@@ -138,8 +173,11 @@ export default function TodoRules({ rules }: Props) {
         }, { preserveScroll: true });
     };
 
+    const showTransition = hasTransition(form.trigger_type);
     const fromOptions = form.trigger_type === 'rag_status_changed' ? RAG_OPTIONS : STATUS_OPTIONS;
     const toOptions = (form.trigger_type === 'rag_status_changed' ? RAG_OPTIONS : STATUS_OPTIONS).filter((o) => o.key !== '');
+    const currentTrigger = TRIGGER_TYPES.find((t) => t.key === form.trigger_type);
+    const canSubmit = form.suggested_body.trim() && (showTransition ? !!form.trigger_to : true);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -156,7 +194,7 @@ export default function TodoRules({ rules }: Props) {
                 </div>
 
                 <p className="text-muted-foreground text-sm">
-                    Define rules to automatically suggest todos when initiative status or RAG changes.
+                    Define rules to automatically suggest todos when initiatives change.
                     Use <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">{'{title}'}</code> in the body template to insert the initiative name.
                 </p>
 
@@ -230,7 +268,7 @@ export default function TodoRules({ rules }: Props) {
                             <Label>Trigger Type</Label>
                             <Select
                                 value={form.trigger_type}
-                                onValueChange={(v) => setForm({ ...form, trigger_type: v as FormData['trigger_type'], trigger_from: '', trigger_to: v === 'rag_status_changed' ? 'red' : 'done' })}
+                                onValueChange={handleTriggerTypeChange}
                             >
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
@@ -239,38 +277,43 @@ export default function TodoRules({ rules }: Props) {
                                     ))}
                                 </SelectContent>
                             </Select>
+                            {currentTrigger && (
+                                <p className="text-muted-foreground text-xs">{currentTrigger.description}</p>
+                            )}
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label>From</Label>
-                                <Select
-                                    value={form.trigger_from || '__any'}
-                                    onValueChange={(v) => setForm({ ...form, trigger_from: v === '__any' ? '' : v })}
-                                >
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        {fromOptions.map((o) => (
-                                            <SelectItem key={o.key || '__any'} value={o.key || '__any'}>{o.label}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                        {showTransition && (
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label>From</Label>
+                                    <Select
+                                        value={form.trigger_from || '__any'}
+                                        onValueChange={(v) => setForm({ ...form, trigger_from: v === '__any' ? '' : v })}
+                                    >
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            {fromOptions.map((o) => (
+                                                <SelectItem key={o.key || '__any'} value={o.key || '__any'}>{o.label}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>To</Label>
+                                    <Select
+                                        value={form.trigger_to}
+                                        onValueChange={(v) => setForm({ ...form, trigger_to: v })}
+                                    >
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            {toOptions.map((o) => (
+                                                <SelectItem key={o.key} value={o.key}>{o.label}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
-                            <div className="space-y-2">
-                                <Label>To</Label>
-                                <Select
-                                    value={form.trigger_to}
-                                    onValueChange={(v) => setForm({ ...form, trigger_to: v })}
-                                >
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        {toOptions.map((o) => (
-                                            <SelectItem key={o.key} value={o.key}>{o.label}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
+                        )}
 
                         <div className="space-y-2">
                             <Label>Suggested Body</Label>
@@ -310,7 +353,7 @@ export default function TodoRules({ rules }: Props) {
                             <Button type="button" variant="outline" onClick={() => setModal({ open: false, rule: null })}>
                                 Cancel
                             </Button>
-                            <Button type="submit" disabled={submitting || !form.suggested_body.trim() || !form.trigger_to}>
+                            <Button type="submit" disabled={submitting || !canSubmit}>
                                 {submitting ? 'Saving...' : 'Save'}
                             </Button>
                         </DialogFooter>

@@ -91,7 +91,7 @@ export type Todo = {
     body: string;
     deadline: string;
     is_complete: boolean;
-    source: 'manual' | 'rag_status' | 'blocking' | 'deadline_approaching' | 'rag_status_changed' | 'status_changed';
+    source: 'manual' | 'rag_status' | 'blocking' | 'deadline_approaching' | 'rag_status_changed' | 'status_changed' | 'deadline_changed' | 'deadline_overdue' | 'deadline_missing' | 'no_rag_set' | 'status_changed_notify_dependents' | 'moved_to_done';
     created_at: string;
     updated_at: string;
 };
@@ -104,11 +104,21 @@ export type TodoSuggestion = {
     deadline: string;
 };
 
+export type TodoRuleTriggerType =
+    | 'rag_status_changed'
+    | 'status_changed'
+    | 'deadline_changed'
+    | 'deadline_overdue'
+    | 'deadline_missing'
+    | 'no_rag_set'
+    | 'status_changed_notify_dependents'
+    | 'moved_to_done';
+
 export type TodoRule = {
     id: string;
-    trigger_type: 'rag_status_changed' | 'status_changed';
+    trigger_type: TodoRuleTriggerType;
     trigger_from: string | null;
-    trigger_to: string;
+    trigger_to: string | null;
     suggested_body: string;
     suggested_deadline_days: number;
     is_active: boolean;

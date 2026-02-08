@@ -13,9 +13,9 @@ class UpdateTodoRuleRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'trigger_type' => ['required', 'string', 'in:rag_status_changed,status_changed'],
+            'trigger_type' => ['required', 'string', 'in:rag_status_changed,status_changed,deadline_changed,deadline_overdue,deadline_missing,no_rag_set,status_changed_notify_dependents,moved_to_done'],
             'trigger_from' => ['nullable', 'string'],
-            'trigger_to' => ['required', 'string'],
+            'trigger_to' => ['nullable', 'string'],
             'suggested_body' => ['required', 'string', 'max:1000'],
             'suggested_deadline_days' => ['required', 'integer', 'min:0'],
             'is_active' => ['sometimes', 'boolean'],
