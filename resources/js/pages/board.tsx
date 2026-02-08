@@ -161,6 +161,27 @@ export default function Board() {
         localStorage.setItem('board-fit-columns', String(pressed));
     };
 
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key !== 'w' && e.key !== 'W') return;
+            if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+            const tag = (e.target as HTMLElement)?.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+            if ((e.target as HTMLElement)?.isContentEditable) return;
+
+            e.preventDefault();
+            setFitColumns((prev) => {
+                const next = !prev;
+                localStorage.setItem('board-fit-columns', String(next));
+                return next;
+            });
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
+
     // Team column order (optimistic reordering)
     const [teamOrder, setTeamOrder] = useState(() => teams.map((t) => t.id));
 

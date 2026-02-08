@@ -23,13 +23,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import {
-    Sheet,
-    SheetContent,
-    SheetFooter,
-    SheetHeader,
-    SheetTitle,
-} from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import InitiativeController from '@/actions/App/Http/Controllers/InitiativeController';
 import DependencyController from '@/actions/App/Http/Controllers/DependencyController';
@@ -545,14 +538,13 @@ function EditPanel({
 
     if (editing) {
         return (
-            <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-                <SheetContent
-                    side="right"
-                    className="!max-w-4xl !w-full flex flex-col p-0"
+            <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+                <DialogContent
+                    className="flex flex-col gap-0 p-0 h-[calc(100vh-2rem)] sm:h-[95vh] sm:max-w-[95vw] overflow-hidden duration-100"
                 >
-                    <SheetHeader className="shrink-0 border-b px-6 py-4">
-                        <SheetTitle>Edit Initiative</SheetTitle>
-                    </SheetHeader>
+                    <DialogHeader className="shrink-0 border-b px-6 py-4">
+                        <DialogTitle>Edit Initiative</DialogTitle>
+                    </DialogHeader>
 
                     <form
                         onSubmit={handleSubmit}
@@ -917,7 +909,7 @@ function EditPanel({
                         </div>
 
                         {/* Footer */}
-                        <SheetFooter className="shrink-0 flex-row justify-end gap-2 border-t px-6 py-4">
+                        <DialogFooter className="shrink-0 flex-row justify-end gap-2 border-t px-6 py-4">
                             <Button
                                 type="button"
                                 variant="outline"
@@ -948,22 +940,21 @@ function EditPanel({
                             >
                                 {form.processing ? 'Saving...' : 'Save'}
                             </Button>
-                        </SheetFooter>
+                        </DialogFooter>
                     </form>
-                </SheetContent>
-            </Sheet>
+                </DialogContent>
+            </Dialog>
         );
     }
 
     return (
-        <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-            <SheetContent
-                side="right"
-                className="!max-w-4xl !w-full flex flex-col p-0"
+        <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+            <DialogContent
+                className="flex flex-col gap-0 p-0 h-[calc(100vh-2rem)] sm:h-[95vh] sm:max-w-[95vw] overflow-hidden duration-100"
             >
-                <SheetHeader className="sr-only">
-                    <SheetTitle>{initiative.title}</SheetTitle>
-                </SheetHeader>
+                <DialogHeader className="sr-only">
+                    <DialogTitle>{initiative.title}</DialogTitle>
+                </DialogHeader>
 
                 <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
                     {/* Main column */}
@@ -1136,13 +1127,13 @@ function EditPanel({
                     </div>
                 </div>
 
-                <SheetFooter className="shrink-0 flex-row justify-end gap-2 border-t px-6 py-4">
+                <DialogFooter className="shrink-0 flex-row justify-end gap-2 border-t px-6 py-4">
                     <Button variant="outline" onClick={onClose}>
                         Close
                     </Button>
-                </SheetFooter>
-            </SheetContent>
-        </Sheet>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }
 
