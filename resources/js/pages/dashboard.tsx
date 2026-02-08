@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { AlertCircle, CheckCircle2, Clock, Layers, Loader2, Pencil, Plus, Trash2, Lightbulb, ChevronDown } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, Layers, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { dashboard } from '@/routes';
@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import type { BreadcrumbItem } from '@/types';
-import type { BoardSummary, TeamColor, TodoSuggestion } from '@/types/board';
+import type { BoardSummary, TeamColor } from '@/types/board';
 import { COLOR_STYLES, RAG_STATUSES } from '@/types/board';
 
 type DashboardStats = {
@@ -78,7 +78,6 @@ type DashboardProps = {
     unassigned: UnassignedData;
     recentActivity: ActivityItem[];
     todos: DashboardTodo[];
-    suggestions: TodoSuggestion[];
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -282,12 +281,11 @@ function getDeadlineBadge(deadline: string) {
     return { label: `${diff}d`, className: 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400' };
 }
 
-function TodosSection({ todos, suggestions }: { todos: DashboardTodo[]; suggestions: TodoSuggestion[] }) {
+function TodosSection({ todos }: { todos: DashboardTodo[] }) {
     const [showAdd, setShowAdd] = useState(false);
     const [newBody, setNewBody] = useState('');
     const [newDeadline, setNewDeadline] = useState('');
     const [newInitiativeId, setNewInitiativeId] = useState('');
-    const [dismissed, setDismissed] = useState<string[]>([]);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editBody, setEditBody] = useState('');
     const [editDeadline, setEditDeadline] = useState('');
@@ -315,18 +313,6 @@ function TodosSection({ todos, suggestions }: { todos: DashboardTodo[]; suggesti
             { preserveScroll: true, onSuccess: () => { setEditingId(null); } },
         );
     };
-
-    const handleAcceptSuggestion = (suggestion: TodoSuggestion) => {
-        router.post(
-            TodoController.store.url(suggestion.initiative_id),
-            { body: suggestion.body, deadline: suggestion.deadline, source: suggestion.source },
-            { preserveScroll: true },
-        );
-    };
-
-    const visibleSuggestions = suggestions.filter(
-        (s) => !dismissed.includes(`${s.initiative_id}:${s.source}`),
-    );
 
     return (
         <div className="rounded-xl border border-neutral-200 dark:border-neutral-800">
@@ -371,7 +357,7 @@ function TodosSection({ todos, suggestions }: { todos: DashboardTodo[]; suggesti
                     </div>
                 )}
 
-                {todos.length === 0 && visibleSuggestions.length === 0 && !showAdd && (
+                {todos.length === 0 && !showAdd && (
                     <p className="text-muted-foreground p-4 text-sm">
                         No todos yet. Add todos from initiative details or accept suggestions below.
                     </p>
@@ -462,44 +448,6 @@ function TodosSection({ todos, suggestions }: { todos: DashboardTodo[]; suggesti
                 })}
             </div>
 
-            {visibleSuggestions.length > 0 && (
-                <div className="border-t border-neutral-200 dark:border-neutral-800">
-                    <div className="px-4 py-2">
-                        <h3 className="flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
-                            <Lightbulb className="size-3.5" />
-                            Suggestions
-                        </h3>
-                    </div>
-                    <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
-                        {visibleSuggestions.map((suggestion) => (
-                            <div key={`${suggestion.initiative_id}:${suggestion.source}`} className="flex items-center gap-3 px-4 py-2.5">
-                                <div className="min-w-0 flex-1">
-                                    <span className="text-sm text-neutral-700 dark:text-neutral-300">
-                                        {suggestion.body}
-                                    </span>
-                                    <p className="text-muted-foreground text-xs mt-0.5">
-                                        {suggestion.initiative_title}
-                                    </p>
-                                </div>
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleAcceptSuggestion(suggestion)}
-                                >
-                                    Accept
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => setDismissed([...dismissed, `${suggestion.initiative_id}:${suggestion.source}`])}
-                                >
-                                    Dismiss
-                                </Button>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
@@ -508,7 +456,7 @@ export default function Dashboard() {
     const pageProps = usePage<{
         props: DashboardProps & { boards: BoardSummary[] };
     }>().props as unknown as DashboardProps & { boards: BoardSummary[] };
-    const { stats, teams, unassigned, recentActivity, todos, suggestions } = pageProps;
+    const { stats, teams, unassigned, recentActivity, todos } = pageProps;
     const firstBoard = pageProps.boards?.[0];
 
     const statCards = [
@@ -585,7 +533,7 @@ export default function Dashboard() {
                 )}
 
                 {/* Todos */}
-                <TodosSection todos={todos ?? []} suggestions={suggestions ?? []} />
+                <TodosSection todos={todos ?? []} />
 
                 {/* Per-team cards */}
                 {(teams.length > 0 || (unassigned.counts.in_progress + unassigned.counts.upcoming + unassigned.counts.done) > 0) && (

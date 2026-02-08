@@ -91,7 +91,7 @@ export type Todo = {
     body: string;
     deadline: string;
     is_complete: boolean;
-    source: 'manual' | 'rag_status' | 'blocking' | 'deadline_approaching';
+    source: 'manual' | 'rag_status' | 'blocking' | 'deadline_approaching' | 'rag_status_changed' | 'status_changed';
     created_at: string;
     updated_at: string;
 };
@@ -102,6 +102,27 @@ export type TodoSuggestion = {
     body: string;
     source: string;
     deadline: string;
+};
+
+export type TodoRule = {
+    id: string;
+    trigger_type: 'rag_status_changed' | 'status_changed';
+    trigger_from: string | null;
+    trigger_to: string;
+    suggested_body: string;
+    suggested_deadline_days: number;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+};
+
+export type FlashTodoSuggestion = {
+    rule_id: string;
+    initiative_id: string;
+    initiative_title: string;
+    body: string;
+    deadline: string;
+    source: string;
 };
 
 export type RagStatus = 'red' | 'amber' | 'green';

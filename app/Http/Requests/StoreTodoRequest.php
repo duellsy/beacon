@@ -15,7 +15,7 @@ class StoreTodoRequest extends FormRequest
         return [
             'body' => ['required', 'string', 'max:500'],
             'deadline' => ['required', 'date'],
-            'source' => ['sometimes', 'string', 'in:manual,rag_status,blocking,deadline_approaching'],
+            'source' => ['sometimes', 'string', 'in:manual,rag_status,blocking,deadline_approaching,rag_status_changed,status_changed'],
         ];
     }
 }

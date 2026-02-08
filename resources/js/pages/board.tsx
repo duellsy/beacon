@@ -13,6 +13,7 @@ import {
     horizontalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { Head, router, usePage } from '@inertiajs/react';
+import type { FlashTodoSuggestion } from '@/types/board';
 import { AlertTriangle, Calendar, Columns3, Download, FolderOpen, MoreVertical, Pencil, Plus, Search, Upload, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BoardCell } from '@/components/board/board-cell';
@@ -21,6 +22,7 @@ import { DependencyDragLayer } from '@/components/board/dependency-drag-layer';
 import { DependencyLines } from '@/components/board/dependency-lines';
 import { InitiativeCard } from '@/components/board/initiative-card';
 import { InitiativeModal } from '@/components/board/initiative-modal';
+import { TodoSuggestionModal } from '@/components/board/todo-suggestion-modal';
 import { ProjectModal } from '@/components/board/project-modal';
 import { TeamDetailSheet } from '@/components/board/team-detail-sheet';
 import { TeamHeader } from '@/components/board/team-header';
@@ -72,9 +74,24 @@ type BoardProps = {
 };
 
 export default function Board() {
-    const { board, boards, teams, initiatives, projects, currentProjectId } = usePage<{
-        props: BoardProps;
-    }>().props as unknown as BoardProps;
+    const pageProps = usePage<{
+        props: BoardProps & { todo_suggestions?: FlashTodoSuggestion[] };
+    }>().props as unknown as BoardProps & { todo_suggestions?: FlashTodoSuggestion[] };
+    const { board, boards, teams, initiatives, projects, currentProjectId } = pageProps;
+    const [flashSuggestions, setFlashSuggestions] = useState<FlashTodoSuggestion[]>([]);
+    const [lastSuggestionKey, setLastSuggestionKey] = useState<string>('');
+
+    // Capture flash suggestions whenever props change
+    useEffect(() => {
+        const suggestions = pageProps.todo_suggestions;
+        if (suggestions && suggestions.length > 0) {
+            const key = JSON.stringify(suggestions);
+            if (key !== lastSuggestionKey) {
+                setFlashSuggestions(suggestions);
+                setLastSuggestionKey(key);
+            }
+        }
+    }, [pageProps.todo_suggestions, lastSuggestionKey]);
 
     const contentRef = useRef<HTMLDivElement>(null);
 
@@ -945,6 +962,13 @@ export default function Board() {
                     setTeamModal({ open: true, team: t });
                 }}
             />
+
+            {flashSuggestions.length > 0 && (
+                <TodoSuggestionModal
+                    suggestions={flashSuggestions}
+                    onClose={() => setFlashSuggestions([])}
+                />
+            )}
         </AppLayout>
     );
 }

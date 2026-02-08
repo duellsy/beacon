@@ -2,11 +2,14 @@ import { Head, Link, usePage } from '@inertiajs/react';
 import {
     ArrowRight,
     Ban,
+    CheckCircle2,
     ChevronDown,
+    Circle,
     Eye,
     GitBranch,
     GripVertical,
     LayoutGrid,
+    ListTodo,
     Puzzle,
     Shield,
     Users,
@@ -93,6 +96,7 @@ function BoardMockup() {
                                             <div className="flex items-center gap-1">
                                                 <GripVertical className="size-3 text-muted-foreground/50" />
                                                 <span className="text-[10px] font-medium">Auth v2</span>
+                                                <div className="ml-auto size-2 rounded-full bg-green-500" title="Green" />
                                             </div>
                                         </div>
                                     )}
@@ -101,7 +105,10 @@ function BoardMockup() {
                                             <div className="flex items-center gap-1">
                                                 <GripVertical className="size-3 text-muted-foreground/50" />
                                                 <span className="text-[10px] font-medium">Onboarding</span>
-                                                <Ban className="ml-auto size-3 text-red-500" />
+                                                <div className="ml-auto flex items-center gap-1">
+                                                    <div className="size-2 rounded-full bg-red-500" title="Red" />
+                                                    <Ban className="size-3 text-red-500" />
+                                                </div>
                                             </div>
                                         </div>
                                     )}
@@ -110,6 +117,7 @@ function BoardMockup() {
                                             <div className="flex items-center gap-1">
                                                 <GripVertical className="size-3 text-muted-foreground/50" />
                                                 <span className="text-[10px] font-medium">Push Notifs</span>
+                                                <div className="ml-auto size-2 rounded-full bg-amber-500" title="Amber" />
                                             </div>
                                         </div>
                                     )}
@@ -192,7 +200,7 @@ export default function Welcome({
             <Head title="Beacon - See What Every Team Is Working On">
                 <meta
                     name="description"
-                    content="See what every team is working on at a glance. Plan initiatives across teams, track dependencies, and keep everyone aligned on a single board."
+                    content="See what every team is working on at a glance. Plan initiatives across teams, track dependencies, monitor health with RAG status, and manage todos — all on visual planning boards."
                 />
                 <meta
                     property="og:title"
@@ -200,7 +208,7 @@ export default function Welcome({
                 />
                 <meta
                     property="og:description"
-                    content="See what every team is working on at a glance. Plan initiatives on a single board."
+                    content="Visual planning boards for cross-team initiatives. Track dependencies, RAG status, and todos."
                 />
                 <meta property="og:type" content="website" />
                 <meta name="twitter:card" content="summary_large_image" />
@@ -210,7 +218,7 @@ export default function Welcome({
                 />
                 <meta
                     name="twitter:description"
-                    content="See what every team is working on at a glance. Plan initiatives on a single board."
+                    content="Visual planning boards for cross-team initiatives. Track dependencies, RAG status, and todos."
                 />
                 <script type="application/ld+json">
                     {JSON.stringify({
@@ -220,7 +228,7 @@ export default function Welcome({
                         applicationCategory: 'BusinessApplication',
                         operatingSystem: 'Web',
                         description:
-                            'See what every team is working on. Plan initiatives across teams and track dependencies on a single board.',
+                            'See what every team is working on. Plan initiatives across teams, track dependencies, monitor RAG status, and manage todos on visual planning boards.',
                         offers: {
                             '@type': 'Offer',
                             price: '0',
@@ -239,15 +247,15 @@ export default function Welcome({
                                 name: 'How is Beacon different from Jira or Asana?',
                                 acceptedAnswer: {
                                     '@type': 'Answer',
-                                    text: 'Beacon is purpose-built for seeing what every team is working on. While Jira and Asana track individual tasks, Beacon focuses on the bigger picture — initiatives across teams and how they depend on each other.',
+                                    text: 'Beacon is purpose-built for seeing what every team is working on. While Jira and Asana track individual tasks, Beacon focuses on the bigger picture — initiatives across teams, RAG health status, and smart todos.',
                                 },
                             },
                             {
                                 '@type': 'Question',
-                                name: 'Can I import existing data?',
+                                name: 'What is RAG status?',
                                 acceptedAnswer: {
                                     '@type': 'Answer',
-                                    text: 'Yes. Beacon supports JSON import/export, so you can bulk-load your teams, projects, and initiatives.',
+                                    text: 'RAG stands for Red, Amber, Green. Set health status on each initiative to signal whether it is on track, at risk, or off track. Your dashboard aggregates RAG status across all teams.',
                                 },
                             },
                             {
@@ -317,9 +325,10 @@ export default function Welcome({
                                 </span>
                             </h1>
                             <p className="mt-6 text-lg leading-relaxed text-muted-foreground sm:text-xl">
-                                Beacon puts every team's initiatives on a single
-                                board, so you can see progress at a glance and
-                                spot dependencies before they become problems.
+                                Beacon puts every team's initiatives on visual
+                                planning boards with RAG health tracking, smart
+                                todos, and dependency mapping — so you always
+                                know what's on track and what needs attention.
                             </p>
                             <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
                                 {auth.user ? (
@@ -413,22 +422,22 @@ export default function Welcome({
                                 How Beacon works
                             </h2>
                             <p className="mt-4 text-lg text-muted-foreground">
-                                Three steps to cross-team clarity.
+                                Four steps to cross-team clarity.
                             </p>
                         </div>
 
-                        <div className="mt-16 grid gap-12 lg:grid-cols-3">
+                        <div className="mt-16 grid gap-12 sm:grid-cols-2 lg:grid-cols-4">
                             <div className="text-center">
                                 <div className="mx-auto mb-6 flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500/10 to-blue-600/10 ring-1 ring-blue-500/20">
                                     <LayoutGrid className="size-6 text-blue-600 dark:text-blue-400" />
                                 </div>
                                 <h3 className="text-lg font-semibold">
-                                    1. Plan initiatives across teams
+                                    1. Create boards
                                 </h3>
                                 <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                                    Create a board with your teams as columns and
-                                    status as rows. Add initiatives and drag them
-                                    between teams and statuses as plans evolve.
+                                    Create multiple boards for different contexts.
+                                    Add teams with members and colour-coded columns.
+                                    Drag initiatives between statuses as plans evolve.
                                 </p>
                             </div>
                             <div className="text-center">
@@ -436,7 +445,7 @@ export default function Welcome({
                                     <GitBranch className="size-6 text-amber-600 dark:text-amber-400" />
                                 </div>
                                 <h3 className="text-lg font-semibold">
-                                    2. Map dependencies visually
+                                    2. Map dependencies
                                 </h3>
                                 <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
                                     Link initiatives to what they depend on. See
@@ -445,16 +454,29 @@ export default function Welcome({
                                 </p>
                             </div>
                             <div className="text-center">
-                                <div className="mx-auto mb-6 flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500/10 to-green-600/10 ring-1 ring-emerald-500/20">
-                                    <Eye className="size-6 text-emerald-600 dark:text-emerald-400" />
+                                <div className="mx-auto mb-6 flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-red-500/10 to-amber-600/10 ring-1 ring-red-500/20">
+                                    <Eye className="size-6 text-red-600 dark:text-red-400" />
                                 </div>
                                 <h3 className="text-lg font-semibold">
-                                    3. See the full picture
+                                    3. Track health
                                 </h3>
                                 <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                                    Your dashboard shows what every team is working
-                                    on at a glance. Beacon flags blocked work and
-                                    prevents circular dependencies automatically.
+                                    Set RAG status on each initiative. Your dashboard
+                                    surfaces what's red, amber, or green across every
+                                    team at a glance.
+                                </p>
+                            </div>
+                            <div className="text-center">
+                                <div className="mx-auto mb-6 flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500/10 to-green-600/10 ring-1 ring-emerald-500/20">
+                                    <ListTodo className="size-6 text-emerald-600 dark:text-emerald-400" />
+                                </div>
+                                <h3 className="text-lg font-semibold">
+                                    4. Act on todos
+                                </h3>
+                                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                                    Create custom rules that automatically suggest todos
+                                    when initiatives change status or RAG. Beacon
+                                    triggers suggestions based on your activity.
                                 </p>
                             </div>
                         </div>
@@ -468,15 +490,17 @@ export default function Welcome({
                         <div className="grid items-center gap-10 lg:grid-cols-2">
                             <div>
                                 <div className="mb-4 inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
-                                    Board View
+                                    Planning Boards
                                 </div>
                                 <h3 className="text-2xl font-bold">
-                                    Your initiatives as a visual matrix
+                                    Multiple boards, one clear picture
                                 </h3>
                                 <p className="mt-4 leading-relaxed text-muted-foreground">
-                                    Teams as columns. Status as rows. Every initiative
-                                    in context. Drag and drop to reassign or update
-                                    status. Filter by project to focus on what matters.
+                                    Create boards for different contexts — quarterly
+                                    planning, product areas, or org-wide views. Each
+                                    board shows teams as columns and status as rows.
+                                    Add team members, assign initiatives, and set RAG
+                                    status to track health at a glance.
                                 </p>
                             </div>
                             <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
@@ -496,10 +520,9 @@ export default function Welcome({
                                                 <span className="text-xs font-medium">{team}</span>
                                             </div>
                                             <div className="space-y-2">
-                                                <div className="rounded border border-border bg-background px-2 py-1.5 text-[10px]">
-                                                    {i === 0 && 'Auth v2'}
-                                                    {i === 1 && 'Onboarding'}
-                                                    {i === 2 && 'Push Notifs'}
+                                                <div className="flex items-center justify-between rounded border border-border bg-background px-2 py-1.5 text-[10px]">
+                                                    <span>{i === 0 && 'Auth v2'}{i === 1 && 'Onboarding'}{i === 2 && 'Push Notifs'}</span>
+                                                    <div className={`size-1.5 rounded-full ${i === 0 ? 'bg-green-500' : i === 1 ? 'bg-red-500' : 'bg-amber-500'}`} />
                                                 </div>
                                                 {i !== 1 && (
                                                     <div className="rounded border border-dashed border-border/50 px-2 py-1.5 text-[10px] text-muted-foreground">
@@ -557,41 +580,63 @@ export default function Welcome({
                             </div>
                         </div>
 
-                        {/* Feature 3: Cross-team */}
+                        {/* Feature 3: Dashboard & Todos */}
                         <div className="grid items-center gap-10 lg:grid-cols-2">
                             <div>
                                 <div className="mb-4 inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
-                                    Cross-Team Coordination
+                                    Dashboard & Todos
                                 </div>
                                 <h3 className="text-2xl font-bold">
-                                    One glance, every team
+                                    Know what needs attention
                                 </h3>
                                 <p className="mt-4 leading-relaxed text-muted-foreground">
-                                    Your dashboard shows each team's in-progress
-                                    work, upcoming initiatives, and completion
-                                    status. Dive into the board for details, or
-                                    stay high-level — it's your call.
+                                    Your dashboard shows per-team stats, RAG
+                                    distributions, and in-progress work at a glance.
+                                    Define custom automation rules to trigger todo
+                                    suggestions when initiatives change status or RAG
+                                    — so nothing slips through the cracks.
                                 </p>
                             </div>
                             <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
                                 <div className="space-y-3">
-                                    <div className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2">
-                                        <span className="text-xs font-medium">Q1 Initiatives</span>
-                                        <span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
-                                            8 of 12 done
-                                        </span>
+                                    {/* Summary stats */}
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <div className="rounded-md bg-muted/50 px-2 py-1.5 text-center">
+                                            <div className="text-sm font-bold">12</div>
+                                            <div className="text-[9px] text-muted-foreground">Total</div>
+                                        </div>
+                                        <div className="rounded-md bg-muted/50 px-2 py-1.5 text-center">
+                                            <div className="text-sm font-bold">5</div>
+                                            <div className="text-[9px] text-muted-foreground">In Progress</div>
+                                        </div>
+                                        <div className="rounded-md bg-muted/50 px-2 py-1.5 text-center">
+                                            <div className="text-sm font-bold">4</div>
+                                            <div className="text-[9px] text-muted-foreground">Done</div>
+                                        </div>
                                     </div>
-                                    <div className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2">
-                                        <span className="text-xs font-medium">Platform Migration</span>
-                                        <span className="rounded bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
-                                            2 blocked
-                                        </span>
+                                    {/* Automation rule example */}
+                                    <div className="rounded-md border border-dashed border-emerald-500/30 bg-emerald-50/50 p-2 dark:bg-emerald-950/20">
+                                        <div className="flex items-center gap-1.5">
+                                            <Zap className="size-3 text-emerald-600 dark:text-emerald-400" />
+                                            <span className="text-[9px] font-medium text-emerald-700 dark:text-emerald-300">Rule: RAG → Red triggers todo</span>
+                                        </div>
                                     </div>
-                                    <div className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2">
-                                        <span className="text-xs font-medium">Mobile Launch</span>
-                                        <span className="rounded bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
-                                            3 in progress
-                                        </span>
+                                    {/* Todo suggestions */}
+                                    <div className="space-y-1.5">
+                                        <div className="text-[10px] font-medium text-muted-foreground">Todos</div>
+                                        <div className="flex items-center gap-2 rounded-md bg-background px-2.5 py-1.5">
+                                            <CheckCircle2 className="size-3 text-emerald-500" />
+                                            <span className="text-[10px] line-through text-muted-foreground">Update API docs</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 rounded-md bg-background px-2.5 py-1.5">
+                                            <Circle className="size-3 text-muted-foreground/50" />
+                                            <span className="text-[10px]">Address red RAG on Onboarding</span>
+                                            <span className="ml-auto rounded bg-red-100 px-1.5 py-0.5 text-[8px] font-medium text-red-600 dark:bg-red-950/50 dark:text-red-400">auto</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 rounded-md bg-background px-2.5 py-1.5">
+                                            <Circle className="size-3 text-muted-foreground/50" />
+                                            <span className="text-[10px]">Unblock Mobile team</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -618,9 +663,9 @@ export default function Welcome({
                                 </div>
                                 <h3 className="font-semibold">Engineering Leads</h3>
                                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                                    See your team's initiatives alongside every
-                                    team you coordinate with. Know what's in
-                                    progress and what's coming up.
+                                    Assign initiatives to team members, track
+                                    health with RAG status, and create automation
+                                    rules for todos triggered by activity changes.
                                 </p>
                             </div>
                             <div className="rounded-xl border border-border bg-card p-6">
@@ -629,9 +674,9 @@ export default function Welcome({
                                 </div>
                                 <h3 className="font-semibold">Product Managers</h3>
                                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                                    See initiative progress across all teams at a
-                                    glance. Plan quarterly work with dependency
-                                    awareness built in.
+                                    Create boards for quarterly planning or
+                                    product areas. See RAG status across all teams
+                                    and track dependencies visually.
                                 </p>
                             </div>
                             <div className="rounded-xl border border-border bg-card p-6">
@@ -640,9 +685,9 @@ export default function Welcome({
                                 </div>
                                 <h3 className="font-semibold">Engineering Leadership</h3>
                                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                                    Get a real-time overview of what every team
-                                    is working on. Replace the status-update
-                                    meeting with a single board.
+                                    Dashboard with per-team stats, RAG health
+                                    indicators, and activity feeds. Replace the
+                                    status-update meeting with a glance.
                                 </p>
                             </div>
                         </div>
@@ -657,8 +702,8 @@ export default function Welcome({
                                 Ready to see what every team is working on?
                             </h2>
                             <p className="mt-3 text-muted-foreground">
-                                Set up your board in minutes. Free to use, no credit
-                                card required.
+                                Set up your first board in minutes. Free to use, no
+                                credit card required.
                             </p>
                             <Button size="lg" className="mt-6" asChild>
                                 <Link href={register().url}>
@@ -679,23 +724,31 @@ export default function Welcome({
                         <div className="mt-12">
                             <FaqItem
                                 question="How is Beacon different from Jira or Asana?"
-                                answer="Beacon is purpose-built for seeing what every team is working on. While Jira and Asana track individual tasks, Beacon focuses on the bigger picture: each team's initiatives, how they depend on each other, and overall progress across your organization."
+                                answer="Beacon is purpose-built for seeing what every team is working on. While Jira and Asana track individual tasks, Beacon focuses on the bigger picture: each team's initiatives, how they depend on each other, RAG health status, and overall progress across your organization."
                             />
                             <FaqItem
-                                question="Can I import existing data?"
-                                answer="Yes. Beacon supports JSON import/export, so you can bulk-load your teams, projects, and initiatives. You can also link initiatives to external Jira tickets for easy reference."
+                                question="Can I have multiple boards?"
+                                answer="Yes. Create as many boards as you need — one for quarterly planning, another for a product area, or an org-wide view. Switch between them from the sidebar."
+                            />
+                            <FaqItem
+                                question="What is RAG status?"
+                                answer="RAG stands for Red, Amber, Green. Set the health status on each initiative to signal whether it's on track (green), at risk (amber), or off track (red). Your dashboard aggregates RAG status across all teams so you can spot problems early."
+                            />
+                            <FaqItem
+                                question="How do smart todos work?"
+                                answer="Create custom automation rules that trigger todo suggestions when initiatives change. For example: when any initiative goes to red RAG, suggest 'Address red RAG on [initiative]' with a 3-day deadline. When an initiative changes from in progress to done, suggest 'Create changelog'. Beacon watches your initiative activity and suggests todos based on the rules you define."
                             />
                             <FaqItem
                                 question="How does dependency tracking work?"
                                 answer="Link any initiative to the ones it depends on. Beacon automatically detects when an initiative is blocked because its dependencies aren't done yet. It also prevents circular dependencies so your plan stays coherent."
                             />
                             <FaqItem
-                                question="Is Beacon free?"
-                                answer="Yes. Beacon is free to use. Create an account and start planning your team initiatives right away."
+                                question="Can I import existing data?"
+                                answer="Yes. Beacon supports JSON import/export, so you can bulk-load your teams, projects, and initiatives. You can also link initiatives to external Jira tickets for easy reference."
                             />
                             <FaqItem
-                                question="How do teams get started?"
-                                answer="Register an account, create your teams, add initiatives to the board, and start linking dependencies. Most teams are up and running in under 10 minutes."
+                                question="Is Beacon free?"
+                                answer="Yes. Beacon is free to use. Create an account and start planning your team initiatives right away."
                             />
                         </div>
                     </div>
@@ -705,11 +758,12 @@ export default function Welcome({
                 <section className="px-6 py-20 lg:py-28">
                     <div className="mx-auto max-w-2xl text-center">
                         <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-                            One board. Every team. Full clarity.
+                            Boards. Teams. Todos. Full clarity.
                         </h2>
                         <p className="mt-4 text-lg text-muted-foreground">
-                            See what every team is working on, what's coming
-                            up, and where things depend on each other.
+                            See what every team is working on, track health
+                            with RAG status, and act on smart todos before
+                            things slip.
                         </p>
                         <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
                             {auth.user ? (

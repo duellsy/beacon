@@ -9,6 +9,7 @@ use App\Http\Controllers\InitiativeLogController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\TodoController;
+use App\Http\Controllers\TodoRuleController;
 use App\Models\Board;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -67,6 +68,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('initiatives/{initiative}/todos/{todo}', [TodoController::class, 'update'])->name('todos.update');
     Route::patch('initiatives/{initiative}/todos/{todo}/toggle', [TodoController::class, 'toggle'])->name('todos.toggle');
     Route::delete('initiatives/{initiative}/todos/{todo}', [TodoController::class, 'destroy'])->name('todos.destroy');
+
+    Route::get('todo-rules', [TodoRuleController::class, 'index'])->name('todo-rules.index');
+    Route::post('todo-rules', [TodoRuleController::class, 'store'])->name('todo-rules.store');
+    Route::put('todo-rules/{todoRule}', [TodoRuleController::class, 'update'])->name('todo-rules.update');
+    Route::delete('todo-rules/{todoRule}', [TodoRuleController::class, 'destroy'])->name('todo-rules.destroy');
 });
 
 require __DIR__.'/settings.php';

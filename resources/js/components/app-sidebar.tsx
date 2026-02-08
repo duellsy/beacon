@@ -1,5 +1,5 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { Kanban, LayoutGrid, Plus } from 'lucide-react';
+import { Kanban, LayoutGrid, Lightbulb, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -26,6 +26,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { dashboard } from '@/routes';
 import board from '@/routes/board';
+import TodoRuleController from '@/actions/App/Http/Controllers/TodoRuleController';
 import BoardCrudController from '@/actions/App/Http/Controllers/BoardCrudController';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import type { NavItem } from '@/types';
@@ -37,6 +38,11 @@ const mainNavItems: NavItem[] = [
         title: 'Dashboard',
         href: dashboard(),
         icon: LayoutGrid,
+    },
+    {
+        title: 'Suggestion Rules',
+        href: TodoRuleController.index.url(),
+        icon: Lightbulb,
     },
 ];
 
