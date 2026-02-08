@@ -34,6 +34,7 @@ class BoardController extends Controller
                 'project:id,name',
                 'assignee:id,name,role',
                 'logs' => fn ($q) => $q->orderByDesc('created_at'),
+                'todos' => fn ($q) => $q->orderBy('is_complete')->orderBy('deadline'),
             ]);
 
         if ($projectFilter) {

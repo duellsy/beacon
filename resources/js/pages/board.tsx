@@ -96,6 +96,24 @@ export default function Board() {
         defaultStatus: InitiativeStatus | null;
     }>({ open: false, initiative: null, defaultTeamId: null, defaultStatus: null });
 
+    // Auto-open initiative from URL param (e.g. ?initiative=uuid)
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const initiativeId = params.get('initiative');
+        if (initiativeId) {
+            const init = initiatives.find((i) => i.id === initiativeId);
+            if (init) {
+                setInitiativeModal({ open: true, initiative: init, defaultTeamId: null, defaultStatus: null });
+            }
+            // Clean up the URL param
+            params.delete('initiative');
+            const newUrl = params.toString()
+                ? `${window.location.pathname}?${params.toString()}`
+                : window.location.pathname;
+            window.history.replaceState({}, '', newUrl);
+        }
+    }, []);
+
     // Team detail sheet state
     const [teamDetailSheet, setTeamDetailSheet] = useState<{
         open: boolean;

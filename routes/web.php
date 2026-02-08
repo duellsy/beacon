@@ -8,6 +8,7 @@ use App\Http\Controllers\InitiativeController;
 use App\Http\Controllers\InitiativeLogController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\TeamController;
+use App\Http\Controllers\TodoController;
 use App\Models\Board;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -61,6 +62,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('initiatives/{initiative}/logs', [InitiativeLogController::class, 'store'])->name('initiative-logs.store');
     Route::put('initiatives/{initiative}/logs/{log}', [InitiativeLogController::class, 'update'])->name('initiative-logs.update');
     Route::delete('initiatives/{initiative}/logs/{log}', [InitiativeLogController::class, 'destroy'])->name('initiative-logs.destroy');
+
+    Route::post('initiatives/{initiative}/todos', [TodoController::class, 'store'])->name('todos.store');
+    Route::put('initiatives/{initiative}/todos/{todo}', [TodoController::class, 'update'])->name('todos.update');
+    Route::patch('initiatives/{initiative}/todos/{todo}/toggle', [TodoController::class, 'toggle'])->name('todos.toggle');
+    Route::delete('initiatives/{initiative}/todos/{todo}', [TodoController::class, 'destroy'])->name('todos.destroy');
 });
 
 require __DIR__.'/settings.php';

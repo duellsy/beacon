@@ -1,5 +1,5 @@
 import { router, useForm, usePage } from '@inertiajs/react';
-import { ExternalLink, Pencil, Trash2, X } from 'lucide-react';
+import { ExternalLink, Pencil, Plus, Trash2, X } from 'lucide-react';
 import type { FormEventHandler } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import type { SharedData } from '@/types';
@@ -7,6 +7,7 @@ import Markdown from 'react-markdown';
 import TurndownService from 'turndown';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
@@ -34,12 +35,14 @@ import { Textarea } from '@/components/ui/textarea';
 import InitiativeController from '@/actions/App/Http/Controllers/InitiativeController';
 import DependencyController from '@/actions/App/Http/Controllers/DependencyController';
 import InitiativeLogController from '@/actions/App/Http/Controllers/InitiativeLogController';
+import TodoController from '@/actions/App/Http/Controllers/TodoController';
 import type {
     Initiative,
     InitiativeStatus,
     Project,
     RagStatus,
     Team,
+    Todo,
 } from '@/types/board';
 import { RAG_STATUSES, STATUSES } from '@/types/board';
 
@@ -222,6 +225,12 @@ function EditPanel({
     const [submittingLog, setSubmittingLog] = useState(false);
     const [editingLogId, setEditingLogId] = useState<string | null>(null);
     const [editingLogBody, setEditingLogBody] = useState('');
+    const [addingTodo, setAddingTodo] = useState(false);
+    const [todoBody, setTodoBody] = useState('');
+    const [todoDeadline, setTodoDeadline] = useState('');
+    const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
+    const [editingTodoBody, setEditingTodoBody] = useState('');
+    const [editingTodoDeadline, setEditingTodoDeadline] = useState('');
     const { auth } = usePage<SharedData>().props;
 
     const handleLogPaste = useCallback(
@@ -278,6 +287,10 @@ function EditPanel({
             setLogBody('');
             setEditingLogId(null);
             setEditingLogBody('');
+            setAddingTodo(false);
+            setTodoBody('');
+            setTodoDeadline('');
+            setEditingTodoId(null);
         }
     }, [open, initiative]);
 
@@ -387,6 +400,53 @@ function EditPanel({
         );
     };
 
+    const handleAddTodo = () => {
+        if (!todoBody.trim() || !todoDeadline) return;
+        router.post(
+            TodoController.store.url(initiative.id),
+            { body: todoBody, deadline: todoDeadline },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setTodoBody('');
+                    setTodoDeadline('');
+                    setAddingTodo(false);
+                },
+            },
+        );
+    };
+
+    const handleToggleTodo = (todoId: string) => {
+        router.patch(
+            TodoController.toggle.url({ initiative: initiative.id, todo: todoId }),
+            {},
+            { preserveScroll: true },
+        );
+    };
+
+    const handleUpdateTodo = (todoId: string) => {
+        if (!editingTodoBody.trim() || !editingTodoDeadline) return;
+        router.put(
+            TodoController.update.url({ initiative: initiative.id, todo: todoId }),
+            { body: editingTodoBody, deadline: editingTodoDeadline },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setEditingTodoId(null);
+                    setEditingTodoBody('');
+                    setEditingTodoDeadline('');
+                },
+            },
+        );
+    };
+
+    const handleDeleteTodo = (todoId: string) => {
+        router.delete(
+            TodoController.destroy.url({ initiative: initiative.id, todo: todoId }),
+            { preserveScroll: true },
+        );
+    };
+
     const blocking = allInitiatives.filter(
         (i) => i.dependencies.some((d) => d.id === initiative.id),
     );
@@ -435,6 +495,110 @@ function EditPanel({
         });
 
     const selectedTeam = teams.find((t) => t.id === form.data.team_id);
+
+    const todosSection = (
+        <div className="mt-6 space-y-3 border-t pt-4">
+            <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold">Todos</Label>
+                <Button type="button" variant="outline" size="sm" onClick={() => setAddingTodo(!addingTodo)}>
+                    {addingTodo ? 'Cancel' : <><Plus className="size-3.5" /> Add</>}
+                </Button>
+            </div>
+
+            {addingTodo && (
+                <div className="space-y-2 rounded-md border px-3 py-2">
+                    <Input
+                        value={todoBody}
+                        onChange={(e) => setTodoBody(e.target.value)}
+                        placeholder="What needs to be done?"
+                    />
+                    <div className="flex items-center gap-2">
+                        <Input
+                            type="date"
+                            value={todoDeadline}
+                            onChange={(e) => setTodoDeadline(e.target.value)}
+                            className="w-40"
+                        />
+                        <Button type="button" size="sm" onClick={handleAddTodo} disabled={!todoBody.trim() || !todoDeadline}>
+                            Add
+                        </Button>
+                    </div>
+                </div>
+            )}
+
+            {(initiative.todos ?? []).length === 0 && !addingTodo && (
+                <p className="text-muted-foreground text-sm">No todos yet</p>
+            )}
+
+            <div className="space-y-1.5">
+                {(initiative.todos ?? []).map((todo) => {
+                    if (editingTodoId === todo.id) {
+                        return (
+                            <div key={todo.id} className="space-y-2 rounded-md border px-3 py-2">
+                                <Input
+                                    value={editingTodoBody}
+                                    onChange={(e) => setEditingTodoBody(e.target.value)}
+                                />
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        type="date"
+                                        value={editingTodoDeadline}
+                                        onChange={(e) => setEditingTodoDeadline(e.target.value)}
+                                        className="w-40"
+                                    />
+                                    <Button type="button" size="sm" onClick={() => handleUpdateTodo(todo.id)} disabled={!editingTodoBody.trim() || !editingTodoDeadline}>
+                                        Save
+                                    </Button>
+                                    <Button type="button" variant="outline" size="sm" onClick={() => setEditingTodoId(null)}>
+                                        Cancel
+                                    </Button>
+                                </div>
+                            </div>
+                        );
+                    }
+
+                    return (
+                        <div key={todo.id} className="group flex items-center gap-2 rounded-md border px-3 py-2">
+                            <Checkbox
+                                checked={todo.is_complete}
+                                onCheckedChange={() => handleToggleTodo(todo.id)}
+                            />
+                            <div className="min-w-0 flex-1">
+                                <span className={`text-sm ${todo.is_complete ? 'text-muted-foreground line-through' : 'text-neutral-900 dark:text-neutral-100'}`}>
+                                    {todo.body}
+                                </span>
+                                <p className="text-muted-foreground text-xs">
+                                    Due: {new Date(todo.deadline + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', timeZone: 'UTC' })}
+                                </p>
+                            </div>
+                            {todo.user_id === auth.user.id && (
+                                <div className="flex shrink-0 gap-1 opacity-0 group-hover:opacity-100">
+                                    <button
+                                        type="button"
+                                        className="text-muted-foreground hover:text-foreground p-0.5"
+                                        onClick={() => {
+                                            setEditingTodoId(todo.id);
+                                            setEditingTodoBody(todo.body);
+                                            setEditingTodoDeadline(todo.deadline);
+                                        }}
+                                    >
+                                        <Pencil className="size-3.5" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="text-muted-foreground hover:text-destructive p-0.5"
+                                        onClick={() => handleDeleteTodo(todo.id)}
+                                    >
+                                        <Trash2 className="size-3.5" />
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
 
     const activitySection = (
         <div className="prose prose-sm dark:prose-invert mt-6 max-w-none space-y-3 border-t pt-4">
@@ -1099,6 +1263,8 @@ function EditPanel({
                                 No description
                             </p>
                         )}
+
+                        {todosSection}
 
                         {activitySection}
                     </div>

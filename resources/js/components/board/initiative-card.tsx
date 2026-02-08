@@ -3,6 +3,7 @@ import { CSS } from '@dnd-kit/utilities';
 import {
     AlertTriangle,
     Calendar,
+    CheckSquare,
     ExternalLink,
     GitBranch,
 } from 'lucide-react';
@@ -57,6 +58,9 @@ export function InitiativeCard({
     const hasDependencies = initiative.dependencies.length > 0;
     const hasJiraUrl =
         initiative.jira_url !== null && initiative.jira_url !== '';
+    const todos = initiative.todos ?? [];
+    const totalTodos = todos.length;
+    const completedTodos = todos.filter((t) => t.is_complete).length;
 
     const borderColor = !initiative.is_blocked && teamColor
         ? COLOR_STYLES[teamColor].border
@@ -168,6 +172,13 @@ export function InitiativeCard({
                             timeZone: 'UTC',
                         })}
                     </p>
+                )}
+
+                {totalTodos > 0 && (
+                    <span className={`flex items-center gap-1 text-xs ${completedTodos === totalTodos ? 'text-green-600 dark:text-green-400' : 'text-neutral-500 dark:text-neutral-400'}`}>
+                        <CheckSquare className="size-3" />
+                        {completedTodos}/{totalTodos}
+                    </span>
                 )}
 
                 {initiative.assignee && (

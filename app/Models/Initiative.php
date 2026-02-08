@@ -98,6 +98,14 @@ class Initiative extends Model
         return $this->hasMany(InitiativeLog::class);
     }
 
+    /**
+     * @return HasMany<Todo, $this>
+     */
+    public function todos(): HasMany
+    {
+        return $this->hasMany(Todo::class);
+    }
+
     public function isBlocked(): bool
     {
         return $this->dependencies()->where('status', '!=', 'done')->exists();

@@ -5,11 +5,78 @@ namespace App\Http\Controllers;
 use App\Models\Initiative;
 use App\Models\InitiativeLog;
 use App\Models\Team;
+use App\Models\Todo;
+use Carbon\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class DashboardController extends Controller
 {
+    /**
+     * @param  \Illuminate\Support\Collection<int, Initiative>  $initiatives
+     * @return list<array{initiative_id: string, initiative_title: string, body: string, source: string, deadline: string}>
+     */
+    private function computeSuggestions($initiatives): array
+    {
+        $userId = auth()->id();
+        $existingTodoSources = Todo::query()
+            ->where('user_id', $userId)
+            ->where('is_complete', false)
+            ->get(['initiative_id', 'source'])
+            ->groupBy('initiative_id')
+            ->map(fn ($todos) => $todos->pluck('source')->unique()->values());
+
+        $suggestions = [];
+        $today = Carbon::today();
+
+        foreach ($initiatives->where('status', 'in_progress') as $initiative) {
+            $sources = $existingTodoSources->get($initiative->id, collect());
+
+            if (in_array($initiative->rag_status, ['red', 'amber']) && ! $sources->contains('rag_status')) {
+                $suggestions[] = [
+                    'initiative_id' => $initiative->id,
+                    'initiative_title' => $initiative->title,
+                    'body' => "Address {$initiative->rag_status} RAG status on \"{$initiative->title}\"",
+                    'source' => 'rag_status',
+                    'deadline' => $today->copy()->addDays(3)->toDateString(),
+                ];
+            }
+
+            if ($initiative->expected_date && $initiative->expected_date->diffInDays($today, false) >= -7 && $initiative->expected_date->gte($today) && ! $sources->contains('deadline_approaching')) {
+                $suggestions[] = [
+                    'initiative_id' => $initiative->id,
+                    'initiative_title' => $initiative->title,
+                    'body' => "Deadline approaching for \"{$initiative->title}\" ({$initiative->expected_date->toDateString()})",
+                    'source' => 'deadline_approaching',
+                    'deadline' => $initiative->expected_date->toDateString(),
+                ];
+            }
+        }
+
+        // Check for blocking other teams
+        $initiativesWithDependents = Initiative::query()
+            ->whereIn('id', $initiatives->where('status', '!=', 'done')->pluck('id'))
+            ->whereHas('dependents', fn ($q) => $q->where('status', '!=', 'done'))
+            ->with('dependents:id,title,team_id')
+            ->get();
+
+        foreach ($initiativesWithDependents as $initiative) {
+            $sources = $existingTodoSources->get($initiative->id, collect());
+            if (! $sources->contains('blocking')) {
+                $blockedTitles = $initiative->dependents->pluck('title')->take(2)->join(', ');
+                $suggestions[] = [
+                    'initiative_id' => $initiative->id,
+                    'initiative_title' => $initiative->title,
+                    'body' => "\"{$initiative->title}\" is blocking: {$blockedTitles}",
+                    'source' => 'blocking',
+                    'deadline' => $today->copy()->addDays(3)->toDateString(),
+                ];
+            }
+        }
+
+        return $suggestions;
+    }
+
     public function __invoke(): Response
     {
         $initiatives = Initiative::query()->get();
@@ -83,6 +150,26 @@ class DashboardController extends Controller
                 'created_at' => $log->created_at,
             ]);
 
+        $todos = Todo::query()
+            ->where('user_id', auth()->id())
+            ->where('is_complete', false)
+            ->with(['initiative:id,title,team_id', 'initiative.team:id,name,board_id'])
+            ->orderBy('deadline')
+            ->get()
+            ->map(fn (Todo $todo) => [
+                'id' => $todo->id,
+                'initiative_id' => $todo->initiative_id,
+                'body' => $todo->body,
+                'deadline' => $todo->deadline->toDateString(),
+                'is_complete' => $todo->is_complete,
+                'source' => $todo->source,
+                'initiative_title' => $todo->initiative?->title,
+                'team_name' => $todo->initiative?->team?->name,
+                'board_id' => $todo->initiative?->team?->board_id,
+            ]);
+
+        $suggestions = $this->computeSuggestions($initiatives);
+
         return Inertia::render('dashboard', [
             'stats' => [
                 'total' => $total,
@@ -93,6 +180,8 @@ class DashboardController extends Controller
             'teams' => $teams,
             'unassigned' => $unassigned,
             'recentActivity' => $recentActivity,
+            'todos' => $todos,
+            'suggestions' => $suggestions,
         ]);
     }
 }

@@ -84,6 +84,26 @@ export type InitiativeLog = {
     created_at: string;
 };
 
+export type Todo = {
+    id: string;
+    initiative_id: string;
+    user_id: number;
+    body: string;
+    deadline: string;
+    is_complete: boolean;
+    source: 'manual' | 'rag_status' | 'blocking' | 'deadline_approaching';
+    created_at: string;
+    updated_at: string;
+};
+
+export type TodoSuggestion = {
+    initiative_id: string;
+    initiative_title: string;
+    body: string;
+    source: string;
+    deadline: string;
+};
+
 export type RagStatus = 'red' | 'amber' | 'green';
 
 export type Initiative = {
@@ -99,6 +119,7 @@ export type Initiative = {
     expected_date: string | null;
     dependencies: InitiativeDependency[];
     logs: InitiativeLog[];
+    todos: Todo[];
     team: { id: string; name: string } | null;
     project: { id: string; name: string } | null;
     assignee: { id: string; name: string; role: string | null } | null;

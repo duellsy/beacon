@@ -1,10 +1,15 @@
-import { Head, Link, usePage } from '@inertiajs/react';
-import { AlertCircle, CheckCircle2, Clock, Layers, Loader2, Circle } from 'lucide-react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { AlertCircle, CheckCircle2, Clock, Layers, Loader2, Pencil, Plus, Trash2, Lightbulb, ChevronDown } from 'lucide-react';
+import { useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { dashboard } from '@/routes';
 import board from '@/routes/board';
+import TodoController from '@/actions/App/Http/Controllers/TodoController';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import type { BreadcrumbItem } from '@/types';
-import type { BoardSummary, TeamColor } from '@/types/board';
+import type { BoardSummary, TeamColor, TodoSuggestion } from '@/types/board';
 import { COLOR_STYLES, RAG_STATUSES } from '@/types/board';
 
 type DashboardStats = {
@@ -55,11 +60,25 @@ type ActivityItem = {
     created_at: string;
 };
 
+type DashboardTodo = {
+    id: string;
+    initiative_id: string;
+    body: string;
+    deadline: string;
+    is_complete: boolean;
+    source: string;
+    initiative_title: string | null;
+    team_name: string | null;
+    board_id: string | null;
+};
+
 type DashboardProps = {
     stats: DashboardStats;
     teams: DashboardTeam[];
     unassigned: UnassignedData;
     recentActivity: ActivityItem[];
+    todos: DashboardTodo[];
+    suggestions: TodoSuggestion[];
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -248,11 +267,248 @@ function UnassignedCard({ data }: { data: UnassignedData }) {
     );
 }
 
+function getDeadlineBadge(deadline: string) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const d = new Date(deadline + 'T00:00:00');
+    const diff = Math.ceil((d.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (diff < 0) {
+        return { label: `${Math.abs(diff)}d overdue`, className: 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300' };
+    }
+    if (diff <= 2) {
+        return { label: diff === 0 ? 'Today' : `${diff}d`, className: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300' };
+    }
+    return { label: `${diff}d`, className: 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400' };
+}
+
+function TodosSection({ todos, suggestions }: { todos: DashboardTodo[]; suggestions: TodoSuggestion[] }) {
+    const [showAdd, setShowAdd] = useState(false);
+    const [newBody, setNewBody] = useState('');
+    const [newDeadline, setNewDeadline] = useState('');
+    const [newInitiativeId, setNewInitiativeId] = useState('');
+    const [dismissed, setDismissed] = useState<string[]>([]);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editBody, setEditBody] = useState('');
+    const [editDeadline, setEditDeadline] = useState('');
+
+    const handleToggle = (todo: DashboardTodo) => {
+        router.patch(
+            TodoController.toggle.url({ initiative: todo.initiative_id, todo: todo.id }),
+            {},
+            { preserveScroll: true },
+        );
+    };
+
+    const handleDelete = (todo: DashboardTodo) => {
+        router.delete(
+            TodoController.destroy.url({ initiative: todo.initiative_id, todo: todo.id }),
+            { preserveScroll: true },
+        );
+    };
+
+    const handleUpdate = (todo: DashboardTodo) => {
+        if (!editBody.trim() || !editDeadline) return;
+        router.put(
+            TodoController.update.url({ initiative: todo.initiative_id, todo: todo.id }),
+            { body: editBody, deadline: editDeadline },
+            { preserveScroll: true, onSuccess: () => { setEditingId(null); } },
+        );
+    };
+
+    const handleAcceptSuggestion = (suggestion: TodoSuggestion) => {
+        router.post(
+            TodoController.store.url(suggestion.initiative_id),
+            { body: suggestion.body, deadline: suggestion.deadline, source: suggestion.source },
+            { preserveScroll: true },
+        );
+    };
+
+    const visibleSuggestions = suggestions.filter(
+        (s) => !dismissed.includes(`${s.initiative_id}:${s.source}`),
+    );
+
+    return (
+        <div className="rounded-xl border border-neutral-200 dark:border-neutral-800">
+            <div className="flex items-center justify-between border-b px-4 py-3">
+                <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                    Your Todos
+                </h2>
+                <Button variant="outline" size="sm" onClick={() => setShowAdd(!showAdd)}>
+                    <Plus className="size-3.5" />
+                    Add
+                </Button>
+            </div>
+
+            <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                {showAdd && (
+                    <div className="flex items-center gap-2 px-4 py-3">
+                        <Input
+                            value={newBody}
+                            onChange={(e) => setNewBody(e.target.value)}
+                            placeholder="What needs to be done?"
+                            className="flex-1"
+                        />
+                        <Input
+                            type="date"
+                            value={newDeadline}
+                            onChange={(e) => setNewDeadline(e.target.value)}
+                            className="w-40"
+                        />
+                        <Button
+                            size="sm"
+                            disabled={!newBody.trim() || !newDeadline}
+                            onClick={() => {
+                                /* Need initiative_id - user must select from suggestions or create from initiative modal */
+                                setShowAdd(false);
+                                setNewBody('');
+                                setNewDeadline('');
+                            }}
+                        >
+                            Save
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => setShowAdd(false)}>Cancel</Button>
+                    </div>
+                )}
+
+                {todos.length === 0 && visibleSuggestions.length === 0 && !showAdd && (
+                    <p className="text-muted-foreground p-4 text-sm">
+                        No todos yet. Add todos from initiative details or accept suggestions below.
+                    </p>
+                )}
+
+                {todos.map((todo) => {
+                    const badge = getDeadlineBadge(todo.deadline);
+
+                    if (editingId === todo.id) {
+                        return (
+                            <div key={todo.id} className="flex items-center gap-2 px-4 py-3">
+                                <Input
+                                    value={editBody}
+                                    onChange={(e) => setEditBody(e.target.value)}
+                                    className="flex-1"
+                                />
+                                <Input
+                                    type="date"
+                                    value={editDeadline}
+                                    onChange={(e) => setEditDeadline(e.target.value)}
+                                    className="w-40"
+                                />
+                                <Button size="sm" onClick={() => handleUpdate(todo)} disabled={!editBody.trim() || !editDeadline}>
+                                    Save
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={() => setEditingId(null)}>
+                                    Cancel
+                                </Button>
+                            </div>
+                        );
+                    }
+
+                    return (
+                        <div key={todo.id} className="group flex items-center gap-3 px-4 py-2.5">
+                            <Checkbox
+                                checked={todo.is_complete}
+                                onCheckedChange={() => handleToggle(todo)}
+                            />
+                            <div className="min-w-0 flex-1">
+                                <span className="text-sm text-neutral-900 dark:text-neutral-100">
+                                    {todo.body}
+                                </span>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                    {todo.initiative_title && todo.board_id ? (
+                                        <Link
+                                            href={`${board.show.url(todo.board_id)}?initiative=${todo.initiative_id}`}
+                                            className="truncate text-xs text-blue-600 hover:underline dark:text-blue-400"
+                                        >
+                                            {todo.initiative_title}
+                                        </Link>
+                                    ) : todo.initiative_title ? (
+                                        <span className="text-muted-foreground truncate text-xs">
+                                            {todo.initiative_title}
+                                        </span>
+                                    ) : null}
+                                    {todo.team_name && (
+                                        <span className="text-muted-foreground text-xs">
+                                            {todo.team_name}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                            <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${badge.className}`}>
+                                {badge.label}
+                            </span>
+                            <div className="flex shrink-0 gap-1 opacity-0 group-hover:opacity-100">
+                                <button
+                                    type="button"
+                                    className="text-muted-foreground hover:text-foreground p-0.5"
+                                    onClick={() => {
+                                        setEditingId(todo.id);
+                                        setEditBody(todo.body);
+                                        setEditDeadline(todo.deadline);
+                                    }}
+                                >
+                                    <Pencil className="size-3.5" />
+                                </button>
+                                <button
+                                    type="button"
+                                    className="text-muted-foreground hover:text-destructive p-0.5"
+                                    onClick={() => handleDelete(todo)}
+                                >
+                                    <Trash2 className="size-3.5" />
+                                </button>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {visibleSuggestions.length > 0 && (
+                <div className="border-t border-neutral-200 dark:border-neutral-800">
+                    <div className="px-4 py-2">
+                        <h3 className="flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                            <Lightbulb className="size-3.5" />
+                            Suggestions
+                        </h3>
+                    </div>
+                    <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                        {visibleSuggestions.map((suggestion) => (
+                            <div key={`${suggestion.initiative_id}:${suggestion.source}`} className="flex items-center gap-3 px-4 py-2.5">
+                                <div className="min-w-0 flex-1">
+                                    <span className="text-sm text-neutral-700 dark:text-neutral-300">
+                                        {suggestion.body}
+                                    </span>
+                                    <p className="text-muted-foreground text-xs mt-0.5">
+                                        {suggestion.initiative_title}
+                                    </p>
+                                </div>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleAcceptSuggestion(suggestion)}
+                                >
+                                    Accept
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setDismissed([...dismissed, `${suggestion.initiative_id}:${suggestion.source}`])}
+                                >
+                                    Dismiss
+                                </Button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function Dashboard() {
     const pageProps = usePage<{
         props: DashboardProps & { boards: BoardSummary[] };
     }>().props as unknown as DashboardProps & { boards: BoardSummary[] };
-    const { stats, teams, unassigned, recentActivity } = pageProps;
+    const { stats, teams, unassigned, recentActivity, todos, suggestions } = pageProps;
     const firstBoard = pageProps.boards?.[0];
 
     const statCards = [
@@ -327,6 +583,9 @@ export default function Dashboard() {
                         </Link>
                     </div>
                 )}
+
+                {/* Todos */}
+                <TodosSection todos={todos ?? []} suggestions={suggestions ?? []} />
 
                 {/* Per-team cards */}
                 {(teams.length > 0 || (unassigned.counts.in_progress + unassigned.counts.upcoming + unassigned.counts.done) > 0) && (
