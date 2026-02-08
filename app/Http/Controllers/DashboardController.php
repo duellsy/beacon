@@ -3,8 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Initiative;
-use App\Models\InitiativeLog;
-use App\Models\Team;
 use App\Models\Todo;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -13,75 +11,26 @@ class DashboardController extends Controller
 {
     public function __invoke(): Response
     {
-        $initiatives = Initiative::query()->get();
-
-        $total = $initiatives->count();
-        $inProgress = $initiatives->where('status', 'in_progress')->count();
-        $upcoming = $initiatives->where('status', 'upcoming')->count();
-        $done = $initiatives->where('status', 'done')->count();
-
-        $teams = Team::query()
-            ->withCount([
-                'initiatives as in_progress_count' => fn ($q) => $q->where('status', 'in_progress'),
-                'initiatives as upcoming_count' => fn ($q) => $q->where('status', 'upcoming'),
-                'initiatives as done_count' => fn ($q) => $q->where('status', 'done'),
-                'initiatives as rag_red_count' => fn ($q) => $q->where('rag_status', 'red'),
-                'initiatives as rag_amber_count' => fn ($q) => $q->where('rag_status', 'amber'),
-                'initiatives as rag_green_count' => fn ($q) => $q->where('rag_status', 'green'),
+        $inProgressInitiatives = Initiative::query()
+            ->where('status', 'in_progress')
+            ->with(['team:id,name,color,board_id', 'team.board:id,name', 'todos'])
+            ->get()
+            ->sortBy([
+                fn (Initiative $a, Initiative $b) => $b->expected_date <=> $a->expected_date,
+                fn (Initiative $a, Initiative $b) => ($a->team?->name ?? '') <=> ($b->team?->name ?? ''),
             ])
-            ->with(['initiatives' => fn ($q) => $q->where('status', 'in_progress')->select('id', 'title', 'team_id', 'rag_status')->limit(5)])
-            ->orderBy('sort_order')
-            ->get()
-            ->map(fn (Team $team) => [
-                'id' => $team->id,
-                'name' => $team->name,
-                'color' => $team->color,
-                'counts' => [
-                    'in_progress' => $team->in_progress_count,
-                    'upcoming' => $team->upcoming_count,
-                    'done' => $team->done_count,
-                ],
-                'rag' => [
-                    'red' => $team->rag_red_count,
-                    'amber' => $team->rag_amber_count,
-                    'green' => $team->rag_green_count,
-                ],
-                'inProgressInitiatives' => $team->initiatives->map(fn (Initiative $i) => [
-                    'id' => $i->id,
-                    'title' => $i->title,
-                    'rag_status' => $i->rag_status,
-                ]),
-            ]);
-
-        $unassignedInitiatives = $initiatives->whereNull('team_id');
-        $unassigned = [
-            'counts' => [
-                'in_progress' => $unassignedInitiatives->where('status', 'in_progress')->count(),
-                'upcoming' => $unassignedInitiatives->where('status', 'upcoming')->count(),
-                'done' => $unassignedInitiatives->where('status', 'done')->count(),
-            ],
-            'inProgressInitiatives' => $unassignedInitiatives
-                ->where('status', 'in_progress')
-                ->take(5)
-                ->map(fn (Initiative $i) => [
-                    'id' => $i->id,
-                    'title' => $i->title,
-                ])
-                ->values(),
-        ];
-
-        $recentActivity = InitiativeLog::query()
-            ->with('initiative:id,title')
-            ->latest()
-            ->limit(15)
-            ->get()
-            ->map(fn (InitiativeLog $log) => [
-                'id' => $log->id,
-                'body' => $log->body,
-                'type' => $log->type,
-                'initiative_title' => $log->initiative?->title,
-                'initiative_id' => $log->initiative_id,
-                'created_at' => $log->created_at,
+            ->values()
+            ->map(fn (Initiative $i) => [
+                'id' => $i->id,
+                'title' => $i->title,
+                'team_name' => $i->team?->name,
+                'team_color' => $i->team?->color,
+                'board_id' => $i->team?->board_id,
+                'board_name' => $i->team?->board?->name,
+                'todo_count' => $i->todos->count(),
+                'incomplete_todo_count' => $i->todos->where('is_complete', false)->count(),
+                'rag_status' => $i->rag_status,
+                'expected_date' => $i->expected_date?->toDateString(),
             ]);
 
         $todos = Todo::query()
@@ -103,15 +52,7 @@ class DashboardController extends Controller
             ]);
 
         return Inertia::render('dashboard', [
-            'stats' => [
-                'total' => $total,
-                'inProgress' => $inProgress,
-                'upcoming' => $upcoming,
-                'done' => $done,
-            ],
-            'teams' => $teams,
-            'unassigned' => $unassigned,
-            'recentActivity' => $recentActivity,
+            'inProgressInitiatives' => $inProgressInitiatives,
             'todos' => $todos,
         ]);
     }

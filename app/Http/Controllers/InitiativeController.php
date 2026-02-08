@@ -100,7 +100,7 @@ class InitiativeController extends Controller
             ->get();
 
         $suggestions = [];
-        $today = Carbon::today();
+        $today = Carbon::today('Australia/Melbourne');
 
         foreach ($rules as $rule) {
             $matched = false;

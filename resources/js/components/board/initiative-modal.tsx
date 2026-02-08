@@ -2,9 +2,12 @@ import { router, useForm, usePage } from '@inertiajs/react';
 import { ExternalLink, Pencil, Plus, Trash2, X } from 'lucide-react';
 import type { FormEventHandler } from 'react';
 import { useCallback, useEffect, useState } from 'react';
-import type { SharedData } from '@/types';
 import Markdown from 'react-markdown';
 import TurndownService from 'turndown';
+import DependencyController from '@/actions/App/Http/Controllers/DependencyController';
+import InitiativeController from '@/actions/App/Http/Controllers/InitiativeController';
+import InitiativeLogController from '@/actions/App/Http/Controllers/InitiativeLogController';
+import TodoController from '@/actions/App/Http/Controllers/TodoController';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -25,10 +28,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import InitiativeController from '@/actions/App/Http/Controllers/InitiativeController';
-import DependencyController from '@/actions/App/Http/Controllers/DependencyController';
-import InitiativeLogController from '@/actions/App/Http/Controllers/InitiativeLogController';
-import TodoController from '@/actions/App/Http/Controllers/TodoController';
+import type { SharedData } from '@/types';
 import type {
     Initiative,
     InitiativeStatus,
@@ -471,7 +471,7 @@ function EditPanel({
 
     const formatTimestamp = (dateString: string) =>
         new Date(dateString).toLocaleString('en-AU', {
-            timeZone: 'Australia/Sydney',
+            timeZone: 'Australia/Melbourne',
             day: 'numeric',
             month: 'short',
             year: 'numeric',
@@ -484,7 +484,7 @@ function EditPanel({
             day: 'numeric',
             month: 'short',
             year: 'numeric',
-            timeZone: 'UTC',
+            timeZone: 'Australia/Melbourne',
         });
 
     const selectedTeam = teams.find((t) => t.id === form.data.team_id);
@@ -561,7 +561,7 @@ function EditPanel({
                                     {todo.body}
                                 </span>
                                 <p className="text-muted-foreground text-xs">
-                                    Due: {new Date(todo.deadline + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', timeZone: 'UTC' })}
+                                    Due: {new Date(todo.deadline + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', timeZone: 'Australia/Melbourne' })}
                                 </p>
                             </div>
                             {todo.user_id === auth.user.id && (
@@ -1229,9 +1229,58 @@ function EditPanel({
                     {/* Main column */}
                     <div className="flex flex-col border-b p-6 lg:flex-1 lg:border-b-0 lg:border-r lg:overflow-y-auto">
                         <div className="mb-4 flex items-start justify-between gap-4">
-                            <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
-                                {initiative.title}
-                            </h2>
+                            <div className="min-w-0 flex-1">
+                                <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
+                                    {initiative.title}
+                                </h2>
+                                <div className="mt-1 flex w-fit items-center gap-1.5 text-sm text-neutral-600 dark:text-neutral-400">
+                                    <Select
+                                        value={initiative.rag_status ?? '__none'}
+                                        onValueChange={(v) => {
+                                            const newRag = v === '__none' ? null : v;
+                                            router.put(
+                                                InitiativeController.update.url(initiative.id),
+                                                {
+                                                    title: initiative.title,
+                                                    description: initiative.description ?? '',
+                                                    jira_url: initiative.jira_url ?? '',
+                                                    team_id: initiative.team_id,
+                                                    team_member_id: initiative.team_member_id,
+                                                    project_id: initiative.project_id,
+                                                    status: initiative.status,
+                                                    expected_date: initiative.expected_date,
+                                                    rag_status: newRag,
+                                                },
+                                                { preserveScroll: true },
+                                            );
+                                        }}
+                                    >
+                                        <SelectTrigger className="inline-flex h-auto items-center gap-1.5 border-0 bg-transparent p-0 shadow-none focus:ring-0 [&>svg]:hidden">
+                                            <span
+                                                className="size-3 shrink-0 rounded-full border border-neutral-300 dark:border-neutral-600"
+                                                style={ragInfo ? { backgroundColor: ragInfo.color, borderColor: ragInfo.color } : undefined}
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="__none">None</SelectItem>
+                                            {RAG_STATUSES.map((r) => (
+                                                <SelectItem key={r.key} value={r.key}>
+                                                    <span className="flex items-center gap-2">
+                                                        <span className="size-2.5 rounded-full" style={{ backgroundColor: r.color }} />
+                                                        {r.label}
+                                                    </span>
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {initiative.expected_date && (
+                                        <>
+                                            <span>for</span>
+                                            <span className="whitespace-nowrap font-medium">{formatDate(initiative.expected_date)}</span>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
                             <Button
                                 variant="outline"
                                 size="sm"
@@ -1274,57 +1323,6 @@ function EditPanel({
 
                             <div className="space-y-1">
                                 <Label className="text-muted-foreground text-xs">
-                                    RAG Status
-                                </Label>
-                                <Select
-                                    value={initiative.rag_status ?? '__none'}
-                                    onValueChange={(v) => {
-                                        const newRag = v === '__none' ? null : v;
-                                        router.put(
-                                            InitiativeController.update.url(initiative.id),
-                                            {
-                                                title: initiative.title,
-                                                description: initiative.description ?? '',
-                                                jira_url: initiative.jira_url ?? '',
-                                                team_id: initiative.team_id,
-                                                team_member_id: initiative.team_member_id,
-                                                project_id: initiative.project_id,
-                                                status: initiative.status,
-                                                expected_date: initiative.expected_date,
-                                                rag_status: newRag,
-                                            },
-                                            { preserveScroll: true },
-                                        );
-                                    }}
-                                >
-                                    <SelectTrigger className="h-8 w-full">
-                                        <SelectValue>
-                                            {ragInfo ? (
-                                                <span className="flex items-center gap-2">
-                                                    <span className="size-2.5 rounded-full" style={{ backgroundColor: ragInfo.color }} />
-                                                    {ragInfo.label}
-                                                </span>
-                                            ) : (
-                                                <span className="text-muted-foreground">None</span>
-                                            )}
-                                        </SelectValue>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="__none">None</SelectItem>
-                                        {RAG_STATUSES.map((r) => (
-                                            <SelectItem key={r.key} value={r.key}>
-                                                <span className="flex items-center gap-2">
-                                                    <span className="size-2.5 rounded-full" style={{ backgroundColor: r.color }} />
-                                                    {r.label}
-                                                </span>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="space-y-1">
-                                <Label className="text-muted-foreground text-xs">
                                     Team
                                 </Label>
                                 <p className="text-sm font-medium">
@@ -1356,19 +1354,6 @@ function EditPanel({
                                     <p className="text-sm font-medium">
                                         {getProjectName(
                                             initiative.project_id,
-                                        )}
-                                    </p>
-                                </div>
-                            )}
-
-                            {initiative.expected_date && (
-                                <div className="space-y-1">
-                                    <Label className="text-muted-foreground text-xs">
-                                        Expected Date
-                                    </Label>
-                                    <p className="text-sm font-medium">
-                                        {formatDate(
-                                            initiative.expected_date,
                                         )}
                                     </p>
                                 </div>
@@ -1473,13 +1458,13 @@ function EditPanel({
                                 Created:{' '}
                                 {new Date(
                                     initiative.created_at,
-                                ).toLocaleDateString()}
+                                ).toLocaleDateString('en-AU', { timeZone: 'Australia/Melbourne' })}
                             </p>
                             <p className="text-muted-foreground text-xs">
                                 Updated:{' '}
                                 {new Date(
                                     initiative.updated_at,
-                                ).toLocaleDateString()}
+                                ).toLocaleDateString('en-AU', { timeZone: 'Australia/Melbourne' })}
                             </p>
                         </div>
                     </div>

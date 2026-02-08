@@ -2,6 +2,7 @@ import { router, useForm } from '@inertiajs/react';
 import { Check, Plus, Trash2, X } from 'lucide-react';
 import type { FormEventHandler } from 'react';
 import { useEffect, useState } from 'react';
+import TeamController from '@/actions/App/Http/Controllers/TeamController';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -13,7 +14,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import TeamController from '@/actions/App/Http/Controllers/TeamController';
 import type { Team, TeamColor } from '@/types/board';
 import { TEAM_COLORS } from '@/types/board';
 

@@ -13,28 +13,30 @@ import {
     horizontalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { Head, router, usePage } from '@inertiajs/react';
-import type { FlashTodoSuggestion } from '@/types/board';
 import { AlertTriangle, Calendar, Columns3, Download, FolderOpen, MoreVertical, Pencil, Plus, Search, Upload, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import BoardController from '@/actions/App/Http/Controllers/BoardController';
+import InitiativeController from '@/actions/App/Http/Controllers/InitiativeController';
+import TeamController from '@/actions/App/Http/Controllers/TeamController';
 import { BoardCell } from '@/components/board/board-cell';
-import { MobileTeamTabs } from '@/components/board/mobile-team-tabs';
 import { DependencyDragLayer } from '@/components/board/dependency-drag-layer';
 import { DependencyLines } from '@/components/board/dependency-lines';
 import { InitiativeCard } from '@/components/board/initiative-card';
 import { InitiativeModal } from '@/components/board/initiative-modal';
-import { TodoSuggestionModal } from '@/components/board/todo-suggestion-modal';
+import { MobileTeamTabs } from '@/components/board/mobile-team-tabs';
 import { ProjectModal } from '@/components/board/project-modal';
 import { TeamDetailSheet } from '@/components/board/team-detail-sheet';
 import { TeamHeader } from '@/components/board/team-header';
 import { TeamModal } from '@/components/board/team-modal';
+import { TodoSuggestionModal } from '@/components/board/todo-suggestion-modal';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
 import {
     Select,
     SelectContent,
@@ -51,9 +53,7 @@ import {
 } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
 import AppLayout from '@/layouts/app-layout';
-import BoardController from '@/actions/App/Http/Controllers/BoardController';
-import InitiativeController from '@/actions/App/Http/Controllers/InitiativeController';
-import TeamController from '@/actions/App/Http/Controllers/TeamController';
+import type { FlashTodoSuggestion } from '@/types/board';
 import type {
     Board as BoardType,
     BoardSummary,

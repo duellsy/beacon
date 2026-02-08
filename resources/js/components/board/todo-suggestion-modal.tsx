@@ -1,15 +1,15 @@
 import { router } from '@inertiajs/react';
 import { Lightbulb } from 'lucide-react';
 import { useState } from 'react';
+import TodoController from '@/actions/App/Http/Controllers/TodoController';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import TodoController from '@/actions/App/Http/Controllers/TodoController';
+import { Input } from '@/components/ui/input';
 import type { FlashTodoSuggestion } from '@/types/board';
 
 type Props = {

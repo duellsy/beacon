@@ -2,6 +2,7 @@ import { router, useForm } from '@inertiajs/react';
 import { Trash2 } from 'lucide-react';
 import type { FormEventHandler } from 'react';
 import { useEffect, useState } from 'react';
+import ProjectController from '@/actions/App/Http/Controllers/ProjectController';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -12,7 +13,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import ProjectController from '@/actions/App/Http/Controllers/ProjectController';
 import type { Project } from '@/types/board';
 
 type ProjectModalProps = {
