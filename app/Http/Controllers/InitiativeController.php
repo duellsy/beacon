@@ -14,14 +14,34 @@ class InitiativeController extends Controller
     {
         Initiative::query()->create($request->validated());
 
-        return to_route('board');
+        return back();
     }
 
     public function update(UpdateInitiativeRequest $request, Initiative $initiative): RedirectResponse
     {
-        $initiative->update($request->validated());
+        $oldRagStatus = $initiative->rag_status;
+        $newRagStatus = $request->validated('rag_status');
 
-        return to_route('board');
+        // Clear assignee if team changed
+        $newTeamId = $request->validated('team_id');
+        $data = $request->validated();
+        if ($newTeamId !== $initiative->team_id) {
+            $data['team_member_id'] = null;
+        }
+
+        $initiative->update($data);
+
+        // Log RAG status change
+        if ($oldRagStatus !== $newRagStatus) {
+            $oldLabel = $oldRagStatus ? ucfirst($oldRagStatus) : 'None';
+            $newLabel = $newRagStatus ? ucfirst($newRagStatus) : 'None';
+            $initiative->logs()->create([
+                'body' => "RAG status changed from {$oldLabel} to {$newLabel}",
+                'type' => 'system',
+            ]);
+        }
+
+        return back();
     }
 
     public function move(MoveInitiativeRequest $request, Initiative $initiative): RedirectResponse
@@ -30,11 +50,16 @@ class InitiativeController extends Controller
 
         if (array_key_exists('team_id', $request->validated())) {
             $data['team_id'] = $request->validated('team_id');
+
+            // Clear assignee when moving to a different team
+            if ($request->validated('team_id') !== $initiative->team_id) {
+                $data['team_member_id'] = null;
+            }
         }
 
         $initiative->update($data);
 
-        return to_route('board');
+        return back();
     }
 
     public function destroy(Initiative $initiative): RedirectResponse
@@ -43,6 +68,6 @@ class InitiativeController extends Controller
         $initiative->dependents()->detach();
         $initiative->delete();
 
-        return to_route('board');
+        return back();
     }
 }

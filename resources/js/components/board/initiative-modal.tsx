@@ -38,9 +38,10 @@ import type {
     Initiative,
     InitiativeStatus,
     Project,
+    RagStatus,
     Team,
 } from '@/types/board';
-import { STATUSES } from '@/types/board';
+import { RAG_STATUSES, STATUSES } from '@/types/board';
 
 type InitiativeModalProps = {
     open: boolean;
@@ -114,9 +115,10 @@ function CreateDialog({
         description: '',
         jira_url: '',
         team_id: '' as string,
+        team_member_id: '' as string,
         project_id: '' as string,
         status: 'upcoming' as InitiativeStatus,
-        engineer_owner: '',
+        rag_status: '' as string,
         expected_date: '',
     });
 
@@ -127,9 +129,10 @@ function CreateDialog({
                 description: '',
                 jira_url: '',
                 team_id: defaultTeamId ?? '',
+                team_member_id: '',
                 project_id: '',
                 status: defaultStatus ?? 'upcoming',
-                engineer_owner: '',
+                rag_status: '',
                 expected_date: '',
             });
             form.clearErrors();
@@ -142,10 +145,11 @@ function CreateDialog({
         const data = {
             ...form.data,
             team_id: form.data.team_id || null,
+            team_member_id: form.data.team_member_id || null,
             project_id: form.data.project_id || null,
             description: form.data.description || null,
             jira_url: form.data.jira_url || null,
-            engineer_owner: form.data.engineer_owner || null,
+            rag_status: form.data.rag_status || null,
             expected_date: form.data.expected_date || null,
         };
 
@@ -153,6 +157,8 @@ function CreateDialog({
             onSuccess: () => onClose(),
         });
     };
+
+    const selectedTeam = teams.find((t) => t.id === form.data.team_id);
 
     return (
         <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -166,6 +172,7 @@ function CreateDialog({
                         form={form}
                         teams={teams}
                         projects={projects}
+                        selectedTeam={selectedTeam}
                     />
 
                     <DialogFooter>
@@ -244,9 +251,10 @@ function EditPanel({
         description: '',
         jira_url: '',
         team_id: '' as string,
+        team_member_id: '' as string,
         project_id: '' as string,
         status: 'upcoming' as InitiativeStatus,
-        engineer_owner: '',
+        rag_status: '' as string,
         expected_date: '',
     });
 
@@ -257,9 +265,10 @@ function EditPanel({
                 description: initiative.description ?? '',
                 jira_url: initiative.jira_url ?? '',
                 team_id: initiative.team_id ?? '',
+                team_member_id: initiative.team_member_id ?? '',
                 project_id: initiative.project_id ?? '',
                 status: initiative.status,
-                engineer_owner: initiative.engineer_owner ?? '',
+                rag_status: initiative.rag_status ?? '',
                 expected_date: initiative.expected_date ?? '',
             });
             form.clearErrors();
@@ -272,16 +281,25 @@ function EditPanel({
         }
     }, [open, initiative]);
 
+    // Clear assignee when team changes in form
+    const handleTeamChange = (teamId: string) => {
+        form.setData('team_id', teamId === '__unassigned' ? '' : teamId);
+        if (teamId !== form.data.team_id) {
+            form.setData('team_member_id', '');
+        }
+    };
+
     const handleSubmit: FormEventHandler = (e) => {
         e.preventDefault();
 
         const data = {
             ...form.data,
             team_id: form.data.team_id || null,
+            team_member_id: form.data.team_member_id || null,
             project_id: form.data.project_id || null,
             description: form.data.description || null,
             jira_url: form.data.jira_url || null,
-            engineer_owner: form.data.engineer_owner || null,
+            rag_status: form.data.rag_status || null,
             expected_date: form.data.expected_date || null,
         };
 
@@ -369,6 +387,10 @@ function EditPanel({
         );
     };
 
+    const blocking = allInitiatives.filter(
+        (i) => i.dependencies.some((d) => d.id === initiative.id),
+    );
+
     const availableDeps = allInitiatives.filter(
         (i) =>
             i.id !== initiative.id &&
@@ -411,6 +433,8 @@ function EditPanel({
             year: 'numeric',
             timeZone: 'UTC',
         });
+
+    const selectedTeam = teams.find((t) => t.id === form.data.team_id);
 
     const activitySection = (
         <div className="prose prose-sm dark:prose-invert mt-6 max-w-none space-y-3 border-t pt-4">
@@ -636,20 +660,46 @@ function EditPanel({
                                     </div>
 
                                     <div className="space-y-2">
+                                        <Label>RAG Status</Label>
+                                        <Select
+                                            value={form.data.rag_status || '__none'}
+                                            onValueChange={(v) =>
+                                                form.setData(
+                                                    'rag_status',
+                                                    v === '__none' ? '' : v,
+                                                )
+                                            }
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="__none">
+                                                    None
+                                                </SelectItem>
+                                                {RAG_STATUSES.map((r) => (
+                                                    <SelectItem key={r.key} value={r.key}>
+                                                        <span className="flex items-center gap-2">
+                                                            <span
+                                                                className="size-2.5 rounded-full"
+                                                                style={{ backgroundColor: r.color }}
+                                                            />
+                                                            {r.label}
+                                                        </span>
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="space-y-2">
                                         <Label>Team</Label>
                                         <Select
                                             value={
                                                 form.data.team_id ||
                                                 '__unassigned'
                                             }
-                                            onValueChange={(v) =>
-                                                form.setData(
-                                                    'team_id',
-                                                    v === '__unassigned'
-                                                        ? ''
-                                                        : v,
-                                                )
-                                            }
+                                            onValueChange={handleTeamChange}
                                         >
                                             <SelectTrigger>
                                                 <SelectValue />
@@ -669,6 +719,35 @@ function EditPanel({
                                             </SelectContent>
                                         </Select>
                                     </div>
+
+                                    {selectedTeam && selectedTeam.members.length > 0 && (
+                                        <div className="space-y-2">
+                                            <Label>Assignee</Label>
+                                            <Select
+                                                value={form.data.team_member_id || '__none'}
+                                                onValueChange={(v) =>
+                                                    form.setData(
+                                                        'team_member_id',
+                                                        v === '__none' ? '' : v,
+                                                    )
+                                                }
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="__none">
+                                                        Unassigned
+                                                    </SelectItem>
+                                                    {selectedTeam.members.map((m) => (
+                                                        <SelectItem key={m.id} value={m.id}>
+                                                            {m.name}{m.role ? ` (${m.role})` : ''}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
 
                                     <div className="space-y-2">
                                         <Label>Project</Label>
@@ -701,22 +780,6 @@ function EditPanel({
                                                 ))}
                                             </SelectContent>
                                         </Select>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="edit-engineer">
-                                            Engineer Owner
-                                        </Label>
-                                        <Input
-                                            id="edit-engineer"
-                                            value={form.data.engineer_owner}
-                                            onChange={(e) =>
-                                                form.setData(
-                                                    'engineer_owner',
-                                                    e.target.value,
-                                                )
-                                            }
-                                        />
                                     </div>
 
                                     <div className="space-y-2">
@@ -763,11 +826,11 @@ function EditPanel({
                                     </div>
                                 </div>
 
-                                {/* Dependencies */}
+                                {/* Blocked by */}
                                 <div className="mt-6 space-y-2 border-t pt-4">
                                     <div className="flex items-center justify-between">
                                         <Label className="text-sm font-semibold">
-                                            Dependencies
+                                            Blocked by
                                         </Label>
                                         <Button
                                             type="button"
@@ -819,7 +882,7 @@ function EditPanel({
 
                                     {initiative.dependencies.length === 0 && (
                                         <p className="text-muted-foreground text-sm">
-                                            No dependencies
+                                            Not blocked by anything
                                         </p>
                                     )}
 
@@ -871,6 +934,42 @@ function EditPanel({
                                         ))}
                                     </div>
                                 </div>
+
+                                {/* Blocking */}
+                                {blocking.length > 0 && (
+                                    <div className="mt-4 space-y-2">
+                                        <Label className="text-sm font-semibold">
+                                            Blocking
+                                        </Label>
+                                        <div className="space-y-1.5">
+                                            {blocking.map((dep) => (
+                                                <div
+                                                    key={dep.id}
+                                                    className="rounded-md border px-3 py-2"
+                                                >
+                                                    <p className="truncate text-sm font-medium">
+                                                        {dep.title}
+                                                    </p>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-muted-foreground text-xs">
+                                                            {getTeamName(dep.team_id)}
+                                                        </span>
+                                                        <Badge
+                                                            variant={
+                                                                dep.status === 'done'
+                                                                    ? 'default'
+                                                                    : 'secondary'
+                                                            }
+                                                            className="text-[10px]"
+                                                        >
+                                                            {statusLabel(dep.status)}
+                                                        </Badge>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Delete */}
                                 <div className="mt-6 border-t pt-4">
@@ -928,11 +1027,13 @@ function EditPanel({
                                             initiative.description ?? '',
                                         jira_url: initiative.jira_url ?? '',
                                         team_id: initiative.team_id ?? '',
+                                        team_member_id:
+                                            initiative.team_member_id ?? '',
                                         project_id:
                                             initiative.project_id ?? '',
                                         status: initiative.status,
-                                        engineer_owner:
-                                            initiative.engineer_owner ?? '',
+                                        rag_status:
+                                            initiative.rag_status ?? '',
                                         expected_date:
                                             initiative.expected_date ?? '',
                                     });
@@ -954,6 +1055,10 @@ function EditPanel({
             </Sheet>
         );
     }
+
+    const ragInfo = initiative.rag_status
+        ? RAG_STATUSES.find((r) => r.key === initiative.rag_status)
+        : null;
 
     return (
         <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
@@ -1012,12 +1117,79 @@ function EditPanel({
 
                             <div className="space-y-1">
                                 <Label className="text-muted-foreground text-xs">
+                                    RAG Status
+                                </Label>
+                                <Select
+                                    value={initiative.rag_status ?? '__none'}
+                                    onValueChange={(v) => {
+                                        const newRag = v === '__none' ? null : v;
+                                        router.put(
+                                            InitiativeController.update.url(initiative.id),
+                                            {
+                                                title: initiative.title,
+                                                description: initiative.description ?? '',
+                                                jira_url: initiative.jira_url ?? '',
+                                                team_id: initiative.team_id,
+                                                team_member_id: initiative.team_member_id,
+                                                project_id: initiative.project_id,
+                                                status: initiative.status,
+                                                expected_date: initiative.expected_date,
+                                                rag_status: newRag,
+                                            },
+                                            { preserveScroll: true },
+                                        );
+                                    }}
+                                >
+                                    <SelectTrigger className="h-8 w-full">
+                                        <SelectValue>
+                                            {ragInfo ? (
+                                                <span className="flex items-center gap-2">
+                                                    <span className="size-2.5 rounded-full" style={{ backgroundColor: ragInfo.color }} />
+                                                    {ragInfo.label}
+                                                </span>
+                                            ) : (
+                                                <span className="text-muted-foreground">None</span>
+                                            )}
+                                        </SelectValue>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="__none">None</SelectItem>
+                                        {RAG_STATUSES.map((r) => (
+                                            <SelectItem key={r.key} value={r.key}>
+                                                <span className="flex items-center gap-2">
+                                                    <span className="size-2.5 rounded-full" style={{ backgroundColor: r.color }} />
+                                                    {r.label}
+                                                </span>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-1">
+                                <Label className="text-muted-foreground text-xs">
                                     Team
                                 </Label>
                                 <p className="text-sm font-medium">
                                     {getTeamName(initiative.team_id)}
                                 </p>
                             </div>
+
+                            {initiative.assignee && (
+                                <div className="space-y-1">
+                                    <Label className="text-muted-foreground text-xs">
+                                        Assignee
+                                    </Label>
+                                    <p className="text-sm font-medium">
+                                        {initiative.assignee.name}
+                                        {initiative.assignee.role && (
+                                            <span className="text-muted-foreground ml-1 text-xs">
+                                                ({initiative.assignee.role})
+                                            </span>
+                                        )}
+                                    </p>
+                                </div>
+                            )}
 
                             {getProjectName(initiative.project_id) && (
                                 <div className="space-y-1">
@@ -1028,17 +1200,6 @@ function EditPanel({
                                         {getProjectName(
                                             initiative.project_id,
                                         )}
-                                    </p>
-                                </div>
-                            )}
-
-                            {initiative.engineer_owner && (
-                                <div className="space-y-1">
-                                    <Label className="text-muted-foreground text-xs">
-                                        Engineer Owner
-                                    </Label>
-                                    <p className="text-sm font-medium">
-                                        {initiative.engineer_owner}
                                     </p>
                                 </div>
                             )}
@@ -1074,46 +1235,77 @@ function EditPanel({
                             )}
                         </div>
 
-                        {/* Dependencies */}
-                        <div className="mt-6 space-y-2 border-t pt-4">
-                            <Label className="text-sm font-semibold">
-                                Dependencies
-                            </Label>
-
-                            {initiative.dependencies.length === 0 && (
-                                <p className="text-muted-foreground text-sm">
-                                    No dependencies
-                                </p>
-                            )}
-
-                            <div className="space-y-1.5">
-                                {initiative.dependencies.map((dep) => (
-                                    <div
-                                        key={dep.id}
-                                        className="rounded-md border px-3 py-2"
-                                    >
-                                        <p className="truncate text-sm font-medium">
-                                            {dep.title}
-                                        </p>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-muted-foreground text-xs">
-                                                {getTeamName(dep.team_id)}
-                                            </span>
-                                            <Badge
-                                                variant={
-                                                    dep.status === 'done'
-                                                        ? 'default'
-                                                        : 'secondary'
-                                                }
-                                                className="text-[10px]"
-                                            >
-                                                {statusLabel(dep.status)}
-                                            </Badge>
+                        {/* Blocked by */}
+                        {initiative.dependencies.length > 0 && (
+                            <div className="mt-6 space-y-2 border-t pt-4">
+                                <Label className="text-sm font-semibold">
+                                    Blocked by
+                                </Label>
+                                <div className="space-y-1.5">
+                                    {initiative.dependencies.map((dep) => (
+                                        <div
+                                            key={dep.id}
+                                            className="rounded-md border px-3 py-2"
+                                        >
+                                            <p className="truncate text-sm font-medium">
+                                                {dep.title}
+                                            </p>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-muted-foreground text-xs">
+                                                    {getTeamName(dep.team_id)}
+                                                </span>
+                                                <Badge
+                                                    variant={
+                                                        dep.status === 'done'
+                                                            ? 'default'
+                                                            : 'secondary'
+                                                    }
+                                                    className="text-[10px]"
+                                                >
+                                                    {statusLabel(dep.status)}
+                                                </Badge>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
-                        </div>
+                        )}
+
+                        {/* Blocking */}
+                        {blocking.length > 0 && (
+                            <div className="mt-4 space-y-2 border-t pt-4">
+                                <Label className="text-sm font-semibold">
+                                    Blocking
+                                </Label>
+                                <div className="space-y-1.5">
+                                    {blocking.map((dep) => (
+                                        <div
+                                            key={dep.id}
+                                            className="rounded-md border px-3 py-2"
+                                        >
+                                            <p className="truncate text-sm font-medium">
+                                                {dep.title}
+                                            </p>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-muted-foreground text-xs">
+                                                    {getTeamName(dep.team_id)}
+                                                </span>
+                                                <Badge
+                                                    variant={
+                                                        dep.status === 'done'
+                                                            ? 'default'
+                                                            : 'secondary'
+                                                    }
+                                                    className="text-[10px]"
+                                                >
+                                                    {statusLabel(dep.status)}
+                                                </Badge>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Details */}
                         <div className="mt-6 space-y-1 border-t pt-4">
@@ -1155,17 +1347,19 @@ type FormFieldsProps = {
             description: string;
             jira_url: string;
             team_id: string;
+            team_member_id: string;
             project_id: string;
             status: InitiativeStatus;
-            engineer_owner: string;
+            rag_status: string;
             expected_date: string;
         }>
     >;
     teams: Team[];
     projects: Project[];
+    selectedTeam?: Team;
 };
 
-function FormFields({ form, teams, projects }: FormFieldsProps) {
+function FormFields({ form, teams, projects, selectedTeam }: FormFieldsProps) {
     return (
         <>
             <div className="space-y-2">
@@ -1240,12 +1434,13 @@ function FormFields({ form, teams, projects }: FormFieldsProps) {
                     <Label>Team</Label>
                     <Select
                         value={form.data.team_id || '__unassigned'}
-                        onValueChange={(v) =>
+                        onValueChange={(v) => {
                             form.setData(
                                 'team_id',
                                 v === '__unassigned' ? '' : v,
-                            )
-                        }
+                            );
+                            form.setData('team_member_id', '');
+                        }}
                     >
                         <SelectTrigger>
                             <SelectValue />
@@ -1264,38 +1459,81 @@ function FormFields({ form, teams, projects }: FormFieldsProps) {
                 </div>
             </div>
 
-            <div className="space-y-2">
-                <Label>Project</Label>
-                <Select
-                    value={form.data.project_id || '__none'}
-                    onValueChange={(v) =>
-                        form.setData('project_id', v === '__none' ? '' : v)
-                    }
-                >
-                    <SelectTrigger>
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="__none">No Project</SelectItem>
-                        {projects.map((p) => (
-                            <SelectItem key={p.id} value={p.id}>
-                                {p.name}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+            <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                    <Label>Project</Label>
+                    <Select
+                        value={form.data.project_id || '__none'}
+                        onValueChange={(v) =>
+                            form.setData('project_id', v === '__none' ? '' : v)
+                        }
+                    >
+                        <SelectTrigger>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="__none">No Project</SelectItem>
+                            {projects.map((p) => (
+                                <SelectItem key={p.id} value={p.id}>
+                                    {p.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div className="space-y-2">
+                    <Label>RAG Status</Label>
+                    <Select
+                        value={form.data.rag_status || '__none'}
+                        onValueChange={(v) =>
+                            form.setData('rag_status', v === '__none' ? '' : v)
+                        }
+                    >
+                        <SelectTrigger>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="__none">None</SelectItem>
+                            {RAG_STATUSES.map((r) => (
+                                <SelectItem key={r.key} value={r.key}>
+                                    <span className="flex items-center gap-2">
+                                        <span
+                                            className="size-2.5 rounded-full"
+                                            style={{ backgroundColor: r.color }}
+                                        />
+                                        {r.label}
+                                    </span>
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
 
-            <div className="space-y-2">
-                <Label htmlFor="init-engineer">Engineer Owner</Label>
-                <Input
-                    id="init-engineer"
-                    value={form.data.engineer_owner}
-                    onChange={(e) =>
-                        form.setData('engineer_owner', e.target.value)
-                    }
-                />
-            </div>
+            {selectedTeam && selectedTeam.members.length > 0 && (
+                <div className="space-y-2">
+                    <Label>Assignee</Label>
+                    <Select
+                        value={form.data.team_member_id || '__none'}
+                        onValueChange={(v) =>
+                            form.setData('team_member_id', v === '__none' ? '' : v)
+                        }
+                    >
+                        <SelectTrigger>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="__none">Unassigned</SelectItem>
+                            {selectedTeam.members.map((m) => (
+                                <SelectItem key={m.id} value={m.id}>
+                                    {m.name}{m.role ? ` (${m.role})` : ''}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            )}
 
             <div className="space-y-2">
                 <Label htmlFor="init-expected-date">Expected Date</Label>

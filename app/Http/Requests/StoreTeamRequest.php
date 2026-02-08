@@ -14,9 +14,12 @@ class StoreTeamRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'delivery_lead' => ['required', 'string', 'max:255'],
-            'product_owner' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string', 'max:5000'],
             'color' => ['required', 'string', 'in:slate,red,orange,amber,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose'],
+            'board_id' => ['required', 'uuid', 'exists:boards,id'],
+            'members' => ['nullable', 'array'],
+            'members.*.name' => ['required', 'string', 'max:255'],
+            'members.*.role' => ['nullable', 'string', 'max:255'],
         ];
     }
 }

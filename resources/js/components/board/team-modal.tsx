@@ -1,5 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
-import { Check, Trash2 } from 'lucide-react';
+import { Check, Plus, Trash2, X } from 'lucide-react';
 import type { FormEventHandler } from 'react';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -12,49 +12,93 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import TeamController from '@/actions/App/Http/Controllers/TeamController';
 import type { Team, TeamColor } from '@/types/board';
 import { TEAM_COLORS } from '@/types/board';
+
+type MemberFormData = {
+    id: string | null;
+    name: string;
+    role: string;
+};
 
 type TeamModalProps = {
     open: boolean;
     onClose: () => void;
     team: Team | null;
+    boardId: string;
 };
 
-export function TeamModal({ open, onClose, team }: TeamModalProps) {
+export function TeamModal({ open, onClose, team, boardId }: TeamModalProps) {
     const isEditing = team !== null;
     const [confirmDelete, setConfirmDelete] = useState(false);
+    const [members, setMembers] = useState<MemberFormData[]>([]);
 
     const form = useForm({
         name: '',
-        delivery_lead: '',
-        product_owner: '',
+        description: '' as string,
         color: 'blue' as TeamColor,
+        board_id: boardId,
+        members: [] as MemberFormData[],
     });
 
     useEffect(() => {
         if (open) {
+            const memberData = team?.members?.map((m) => ({
+                id: m.id,
+                name: m.name,
+                role: m.role ?? '',
+            })) ?? [];
+
+            setMembers(memberData);
             form.setData({
                 name: team?.name ?? '',
-                delivery_lead: team?.delivery_lead ?? '',
-                product_owner: team?.product_owner ?? '',
+                description: team?.description ?? '',
                 color: team?.color ?? 'blue',
+                board_id: boardId,
+                members: memberData,
             });
             form.clearErrors();
             setConfirmDelete(false);
         }
     }, [open, team]);
 
+    const addMember = () => {
+        const updated = [...members, { id: null, name: '', role: '' }];
+        setMembers(updated);
+        form.setData('members', updated);
+    };
+
+    const updateMember = (index: number, field: 'name' | 'role', value: string) => {
+        const updated = members.map((m, i) =>
+            i === index ? { ...m, [field]: value } : m,
+        );
+        setMembers(updated);
+        form.setData('members', updated);
+    };
+
+    const removeMember = (index: number) => {
+        const updated = members.filter((_, i) => i !== index);
+        setMembers(updated);
+        form.setData('members', updated);
+    };
+
     const handleSubmit: FormEventHandler = (e) => {
         e.preventDefault();
 
+        const data = {
+            ...form.data,
+            description: form.data.description || null,
+            members: members.filter((m) => m.name.trim() !== ''),
+        };
+
         if (isEditing) {
-            form.put(TeamController.update.url(team.id), {
+            router.put(TeamController.update.url(team.id), data, {
                 onSuccess: () => onClose(),
             });
         } else {
-            form.post(TeamController.store.url(), {
+            router.post(TeamController.store.url(), data, {
                 onSuccess: () => onClose(),
             });
         }
@@ -69,7 +113,7 @@ export function TeamModal({ open, onClose, team }: TeamModalProps) {
 
     return (
         <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle>
                         {isEditing ? 'Edit Team' : 'Add Team'}
@@ -95,43 +139,16 @@ export function TeamModal({ open, onClose, team }: TeamModalProps) {
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="team-dl">Delivery Lead</Label>
-                        <Input
-                            id="team-dl"
-                            value={form.data.delivery_lead}
+                        <Label htmlFor="team-desc">Description</Label>
+                        <Textarea
+                            id="team-desc"
+                            value={form.data.description}
                             onChange={(e) =>
-                                form.setData(
-                                    'delivery_lead',
-                                    e.target.value,
-                                )
+                                form.setData('description', e.target.value)
                             }
-                            aria-invalid={!!form.errors.delivery_lead}
+                            rows={3}
+                            placeholder="Team purpose and responsibilities..."
                         />
-                        {form.errors.delivery_lead && (
-                            <p className="text-destructive text-sm">
-                                {form.errors.delivery_lead}
-                            </p>
-                        )}
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="team-po">Product Owner</Label>
-                        <Input
-                            id="team-po"
-                            value={form.data.product_owner}
-                            onChange={(e) =>
-                                form.setData(
-                                    'product_owner',
-                                    e.target.value,
-                                )
-                            }
-                            aria-invalid={!!form.errors.product_owner}
-                        />
-                        {form.errors.product_owner && (
-                            <p className="text-destructive text-sm">
-                                {form.errors.product_owner}
-                            </p>
-                        )}
                     </div>
 
                     <div className="space-y-2">
@@ -160,6 +177,51 @@ export function TeamModal({ open, onClose, team }: TeamModalProps) {
                                 {form.errors.color}
                             </p>
                         )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <Label>Members</Label>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={addMember}
+                            >
+                                <Plus className="size-3.5" />
+                                Add
+                            </Button>
+                        </div>
+                        {members.length === 0 && (
+                            <p className="text-muted-foreground text-sm">No members yet</p>
+                        )}
+                        <div className="space-y-2">
+                            {members.map((member, index) => (
+                                <div key={index} className="flex items-center gap-2">
+                                    <Input
+                                        value={member.name}
+                                        onChange={(e) => updateMember(index, 'name', e.target.value)}
+                                        placeholder="Name"
+                                        className="flex-1"
+                                    />
+                                    <Input
+                                        value={member.role}
+                                        onChange={(e) => updateMember(index, 'role', e.target.value)}
+                                        placeholder="Role"
+                                        className="w-32"
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="size-8 shrink-0"
+                                        onClick={() => removeMember(index)}
+                                    >
+                                        <X className="size-3.5" />
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
                     </div>
 
                     <DialogFooter className="gap-2">

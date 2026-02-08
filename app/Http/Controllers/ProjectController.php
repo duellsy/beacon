@@ -14,14 +14,14 @@ class ProjectController extends Controller
     {
         Project::query()->create($request->validated());
 
-        return to_route('board');
+        return back();
     }
 
     public function update(UpdateProjectRequest $request, Project $project): RedirectResponse
     {
         $project->update($request->validated());
 
-        return to_route('board');
+        return back();
     }
 
     public function destroy(Project $project): RedirectResponse
@@ -30,6 +30,6 @@ class ProjectController extends Controller
 
         $project->delete();
 
-        return to_route('board');
+        return back();
     }
 }

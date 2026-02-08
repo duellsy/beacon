@@ -24,8 +24,11 @@ class DashboardController extends Controller
                 'initiatives as in_progress_count' => fn ($q) => $q->where('status', 'in_progress'),
                 'initiatives as upcoming_count' => fn ($q) => $q->where('status', 'upcoming'),
                 'initiatives as done_count' => fn ($q) => $q->where('status', 'done'),
+                'initiatives as rag_red_count' => fn ($q) => $q->where('rag_status', 'red'),
+                'initiatives as rag_amber_count' => fn ($q) => $q->where('rag_status', 'amber'),
+                'initiatives as rag_green_count' => fn ($q) => $q->where('rag_status', 'green'),
             ])
-            ->with(['initiatives' => fn ($q) => $q->where('status', 'in_progress')->select('id', 'title', 'team_id')->limit(5)])
+            ->with(['initiatives' => fn ($q) => $q->where('status', 'in_progress')->select('id', 'title', 'team_id', 'rag_status')->limit(5)])
             ->orderBy('sort_order')
             ->get()
             ->map(fn (Team $team) => [
@@ -37,9 +40,15 @@ class DashboardController extends Controller
                     'upcoming' => $team->upcoming_count,
                     'done' => $team->done_count,
                 ],
+                'rag' => [
+                    'red' => $team->rag_red_count,
+                    'amber' => $team->rag_amber_count,
+                    'green' => $team->rag_green_count,
+                ],
                 'inProgressInitiatives' => $team->initiatives->map(fn (Initiative $i) => [
                     'id' => $i->id,
                     'title' => $i->title,
+                    'rag_status' => $i->rag_status,
                 ]),
             ]);
 

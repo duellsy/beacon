@@ -91,33 +91,6 @@ test('removing project logs correctly', function () {
     expect($log)->not->toBeNull();
 });
 
-test('changing engineer owner logs the change', function () {
-    $initiative = Initiative::factory()->create(['engineer_owner' => 'Alice']);
-
-    $initiative->update(['engineer_owner' => 'Bob']);
-
-    $log = InitiativeLog::where('initiative_id', $initiative->id)
-        ->where('type', 'system')
-        ->where('body', 'like', 'Engineer owner%')
-        ->first();
-
-    expect($log)->not->toBeNull();
-    expect($log->body)->toBe('Engineer owner changed to Bob');
-});
-
-test('removing engineer owner logs correctly', function () {
-    $initiative = Initiative::factory()->create(['engineer_owner' => 'Alice']);
-
-    $initiative->update(['engineer_owner' => null]);
-
-    $log = InitiativeLog::where('initiative_id', $initiative->id)
-        ->where('type', 'system')
-        ->where('body', 'Engineer owner removed')
-        ->first();
-
-    expect($log)->not->toBeNull();
-});
-
 test('changing expected date logs the change', function () {
     $initiative = Initiative::factory()->create(['expected_date' => null]);
 
@@ -200,7 +173,7 @@ test('adding a dependency logs "Dependency added"', function () {
         ->post(route('dependencies.store', $initiative), [
             'dependency_id' => $dependency->id,
         ])
-        ->assertRedirect(route('board'));
+        ->assertRedirect();
 
     $log = InitiativeLog::where('initiative_id', $initiative->id)
         ->where('type', 'system')
@@ -221,7 +194,7 @@ test('removing a dependency logs "Dependency removed"', function () {
             'initiative' => $initiative->id,
             'dependency' => $dependency->id,
         ]))
-        ->assertRedirect(route('board'));
+        ->assertRedirect();
 
     $log = InitiativeLog::where('initiative_id', $initiative->id)
         ->where('type', 'system')

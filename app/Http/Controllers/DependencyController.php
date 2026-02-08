@@ -40,7 +40,7 @@ class DependencyController extends Controller
             'type' => 'system',
         ]);
 
-        return to_route('board');
+        return back();
     }
 
     public function destroy(Initiative $initiative, Initiative $dependency): RedirectResponse
@@ -52,7 +52,7 @@ class DependencyController extends Controller
             'type' => 'system',
         ]);
 
-        return to_route('board');
+        return back();
     }
 
     private function wouldCreateCycle(string $initiativeId, string $dependencyId): bool

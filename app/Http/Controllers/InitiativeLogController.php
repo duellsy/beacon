@@ -18,7 +18,7 @@ class InitiativeLogController extends Controller
             'user_id' => auth()->id(),
         ]);
 
-        return to_route('board');
+        return back();
     }
 
     public function update(UpdateInitiativeLogRequest $request, Initiative $initiative, InitiativeLog $log): RedirectResponse|Response
@@ -29,7 +29,7 @@ class InitiativeLogController extends Controller
 
         $log->update($request->validated());
 
-        return to_route('board');
+        return back();
     }
 
     public function destroy(Initiative $initiative, InitiativeLog $log): RedirectResponse|Response
@@ -40,6 +40,6 @@ class InitiativeLogController extends Controller
 
         $log->delete();
 
-        return to_route('board');
+        return back();
     }
 }

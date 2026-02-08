@@ -8,10 +8,11 @@ import { COLOR_STYLES } from '@/types/board';
 type TeamHeaderProps = {
     team: Team | null;
     onEditTeam?: (team: Team) => void;
+    onClickTeam?: (team: Team) => void;
     sortableId?: string;
 };
 
-export function TeamHeader({ team, onEditTeam, sortableId }: TeamHeaderProps) {
+export function TeamHeader({ team, onEditTeam, onClickTeam, sortableId }: TeamHeaderProps) {
     const borderColor = team ? COLOR_STYLES[team.color].border : undefined;
 
     const {
@@ -50,24 +51,23 @@ export function TeamHeader({ team, onEditTeam, sortableId }: TeamHeaderProps) {
                     </button>
                 )}
                 <div className="min-w-0 flex-1">
-                    <h3 className="truncate text-sm font-bold text-neutral-900 dark:text-neutral-100">
-                        {team ? team.name : 'Unassigned Pool'}
-                    </h3>
-                    {team && (
-                        <div className="mt-1 space-y-0.5">
-                            <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">
-                                <span className="font-medium">
-                                    DL:
-                                </span>{' '}
-                                {team.delivery_lead}
-                            </p>
-                            <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">
-                                <span className="font-medium">
-                                    PO:
-                                </span>{' '}
-                                {team.product_owner}
-                            </p>
-                        </div>
+                    {team ? (
+                        <button
+                            type="button"
+                            className="truncate text-sm font-bold text-neutral-900 hover:underline dark:text-neutral-100"
+                            onClick={() => onClickTeam?.(team)}
+                        >
+                            {team.name}
+                        </button>
+                    ) : (
+                        <h3 className="truncate text-sm font-bold text-neutral-900 dark:text-neutral-100">
+                            Unassigned Pool
+                        </h3>
+                    )}
+                    {team && team.members.length > 0 && (
+                        <p className="mt-0.5 truncate text-xs text-neutral-500 dark:text-neutral-400">
+                            {team.members.length} member{team.members.length !== 1 ? 's' : ''}
+                        </p>
                     )}
                 </div>
                 {team && (

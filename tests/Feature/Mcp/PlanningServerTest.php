@@ -3,12 +3,16 @@
 use App\Mcp\Prompts\DayPlannerPrompt;
 use App\Mcp\Servers\PlanningServer;
 use App\Mcp\Tools\GetActiveInitiativesTool;
+use App\Models\Board;
 use App\Models\Initiative;
 use App\Models\Project;
 use App\Models\Team;
+use App\Models\TeamMember;
 
 test('get active initiatives tool returns in-progress and upcoming initiatives', function () {
-    $team = Team::factory()->create(['name' => 'Platform']);
+    $board = Board::factory()->create();
+    $team = Team::factory()->create(['name' => 'Platform', 'board_id' => $board->id]);
+    $member = TeamMember::factory()->create(['team_id' => $team->id, 'name' => 'Alice']);
     $project = Project::factory()->create(['name' => 'Checkout']);
 
     Initiative::factory()
@@ -17,7 +21,7 @@ test('get active initiatives tool returns in-progress and upcoming initiatives',
         ->create([
             'title' => 'Build payment flow',
             'project_id' => $project->id,
-            'engineer_owner' => 'Alice',
+            'team_member_id' => $member->id,
         ]);
 
     Initiative::factory()

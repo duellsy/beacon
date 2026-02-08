@@ -43,13 +43,21 @@ export const COLOR_STYLES: Record<TeamColor, { border: string; bg: string; darkB
     rose: { border: '#fb7185', bg: '#fff1f3', darkBg: '#fb718518' },
 };
 
+export type TeamMember = {
+    id: string;
+    team_id: string;
+    name: string;
+    role: string | null;
+    sort_order: number;
+};
+
 export type Team = {
     id: string;
     name: string;
-    delivery_lead: string;
-    product_owner: string;
+    description: string | null;
     color: TeamColor;
     sort_order: number;
+    members: TeamMember[];
     created_at: string;
     updated_at: string;
 };
@@ -76,23 +84,40 @@ export type InitiativeLog = {
     created_at: string;
 };
 
+export type RagStatus = 'red' | 'amber' | 'green';
+
 export type Initiative = {
     id: string;
     title: string;
     description: string | null;
     jira_url: string | null;
     team_id: string | null;
+    team_member_id: string | null;
     project_id: string | null;
     status: InitiativeStatus;
-    engineer_owner: string | null;
+    rag_status: RagStatus | null;
     expected_date: string | null;
     dependencies: InitiativeDependency[];
     logs: InitiativeLog[];
     team: { id: string; name: string } | null;
     project: { id: string; name: string } | null;
+    assignee: { id: string; name: string; role: string | null } | null;
     is_blocked: boolean;
     created_at: string;
     updated_at: string;
+};
+
+export type Board = {
+    id: string;
+    name: string;
+    sort_order: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type BoardSummary = {
+    id: string;
+    name: string;
 };
 
 export type InitiativeStatus = 'upcoming' | 'in_progress' | 'done';
@@ -101,4 +126,10 @@ export const STATUSES: { key: InitiativeStatus; label: string }[] = [
     { key: 'in_progress', label: 'In Progress' },
     { key: 'upcoming', label: 'Upcoming' },
     { key: 'done', label: 'Done' },
+];
+
+export const RAG_STATUSES: { key: RagStatus; label: string; color: string }[] = [
+    { key: 'green', label: 'Green', color: '#22c55e' },
+    { key: 'amber', label: 'Amber', color: '#f59e0b' },
+    { key: 'red', label: 'Red', color: '#ef4444' },
 ];

@@ -1,10 +1,11 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { AlertCircle, CheckCircle2, Clock, Layers, Loader2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, Layers, Loader2, Circle } from 'lucide-react';
 import AppLayout from '@/layouts/app-layout';
-import { board, dashboard } from '@/routes';
+import { dashboard } from '@/routes';
+import board from '@/routes/board';
 import type { BreadcrumbItem } from '@/types';
-import type { TeamColor } from '@/types/board';
-import { COLOR_STYLES } from '@/types/board';
+import type { BoardSummary, TeamColor } from '@/types/board';
+import { COLOR_STYLES, RAG_STATUSES } from '@/types/board';
 
 type DashboardStats = {
     total: number;
@@ -22,6 +23,13 @@ type StatusCounts = {
 type InitiativeSummary = {
     id: string;
     title: string;
+    rag_status?: string | null;
+};
+
+type RagCounts = {
+    red: number;
+    amber: number;
+    green: number;
 };
 
 type DashboardTeam = {
@@ -29,6 +37,7 @@ type DashboardTeam = {
     name: string;
     color: TeamColor;
     counts: StatusCounts;
+    rag: RagCounts;
     inProgressInitiatives: InitiativeSummary[];
 };
 
@@ -110,6 +119,29 @@ function TeamCard({ team }: { team: DashboardTeam }) {
                 )}
             </div>
 
+            {(team.rag.red > 0 || team.rag.amber > 0 || team.rag.green > 0) && (
+                <div className="mt-2 flex gap-2">
+                    {team.rag.red > 0 && (
+                        <span className="inline-flex items-center gap-1 text-xs text-neutral-600 dark:text-neutral-400">
+                            <span className="size-2 rounded-full bg-red-500" />
+                            {team.rag.red}
+                        </span>
+                    )}
+                    {team.rag.amber > 0 && (
+                        <span className="inline-flex items-center gap-1 text-xs text-neutral-600 dark:text-neutral-400">
+                            <span className="size-2 rounded-full bg-amber-500" />
+                            {team.rag.amber}
+                        </span>
+                    )}
+                    {team.rag.green > 0 && (
+                        <span className="inline-flex items-center gap-1 text-xs text-neutral-600 dark:text-neutral-400">
+                            <span className="size-2 rounded-full bg-green-500" />
+                            {team.rag.green}
+                        </span>
+                    )}
+                </div>
+            )}
+
             {team.counts.in_progress === 0 && totalCount > 0 && (
                 <div className="mt-3 flex items-center gap-1.5 rounded-md bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
                     <AlertCircle className="size-3.5 shrink-0" />
@@ -119,14 +151,25 @@ function TeamCard({ team }: { team: DashboardTeam }) {
 
             {team.inProgressInitiatives.length > 0 && (
                 <ul className="mt-3 space-y-1">
-                    {team.inProgressInitiatives.map((initiative) => (
-                        <li
-                            key={initiative.id}
-                            className="truncate text-sm text-neutral-700 dark:text-neutral-300"
-                        >
-                            {initiative.title}
-                        </li>
-                    ))}
+                    {team.inProgressInitiatives.map((initiative) => {
+                        const ragColor = initiative.rag_status
+                            ? RAG_STATUSES.find((r) => r.key === initiative.rag_status)?.color
+                            : undefined;
+                        return (
+                            <li
+                                key={initiative.id}
+                                className="flex items-center gap-1.5 truncate text-sm text-neutral-700 dark:text-neutral-300"
+                            >
+                                {ragColor && (
+                                    <span
+                                        className="size-2 shrink-0 rounded-full"
+                                        style={{ backgroundColor: ragColor }}
+                                    />
+                                )}
+                                <span className="truncate">{initiative.title}</span>
+                            </li>
+                        );
+                    })}
                 </ul>
             )}
 
@@ -206,9 +249,11 @@ function UnassignedCard({ data }: { data: UnassignedData }) {
 }
 
 export default function Dashboard() {
-    const { stats, teams, unassigned, recentActivity } = usePage<{
-        props: DashboardProps;
-    }>().props as unknown as DashboardProps;
+    const pageProps = usePage<{
+        props: DashboardProps & { boards: BoardSummary[] };
+    }>().props as unknown as DashboardProps & { boards: BoardSummary[] };
+    const { stats, teams, unassigned, recentActivity } = pageProps;
+    const firstBoard = pageProps.boards?.[0];
 
     const statCards = [
         {
@@ -272,14 +317,16 @@ export default function Dashboard() {
                 </div>
 
                 {/* Quick link */}
-                <div className="flex">
-                    <Link
-                        href={board().url}
-                        className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
-                    >
-                        Open Board &rarr;
-                    </Link>
-                </div>
+                {firstBoard && (
+                    <div className="flex">
+                        <Link
+                            href={board.show.url(firstBoard.id)}
+                            className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
+                        >
+                            Open Board &rarr;
+                        </Link>
+                    </div>
+                )}
 
                 {/* Per-team cards */}
                 {(teams.length > 0 || (unassigned.counts.in_progress + unassigned.counts.upcoming + unassigned.counts.done) > 0) && (

@@ -12,7 +12,7 @@ test('a dependency can be added to an initiative', function () {
         ->post(route('dependencies.store', $initiativeB), [
             'dependency_id' => $initiativeA->id,
         ])
-        ->assertRedirect(route('board'));
+        ->assertRedirect();
 
     expect($initiativeB->refresh()->dependencies)->toHaveCount(1);
     expect($initiativeB->dependencies->first()->id)->toBe($initiativeA->id);
@@ -29,7 +29,7 @@ test('a dependency can be removed from an initiative', function () {
             'initiative' => $initiativeB->id,
             'dependency' => $initiativeA->id,
         ]))
-        ->assertRedirect(route('board'));
+        ->assertRedirect();
 
     expect($initiativeB->refresh()->dependencies)->toHaveCount(0);
 });
