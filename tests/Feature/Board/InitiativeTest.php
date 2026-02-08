@@ -12,7 +12,7 @@ test('an initiative can be created', function () {
             'title' => 'Build checkout flow',
             'status' => 'upcoming',
         ])
-        ->assertRedirect(route('board'));
+        ->assertRedirect();
 
     expect(Initiative::count())->toBe(1);
     expect(Initiative::first()->title)->toBe('Build checkout flow');
@@ -30,9 +30,8 @@ test('an initiative can be created with all fields', function () {
             'jira_url' => 'https://jira.example.com/PROJ-123',
             'team_id' => $team->id,
             'status' => 'in_progress',
-            'engineer_owner' => 'John Doe',
         ])
-        ->assertRedirect(route('board'));
+        ->assertRedirect();
 
     $initiative = Initiative::first();
     expect($initiative->title)->toBe('Build checkout flow');
@@ -40,7 +39,6 @@ test('an initiative can be created with all fields', function () {
     expect($initiative->jira_url)->toBe('https://jira.example.com/PROJ-123');
     expect($initiative->team_id)->toBe($team->id);
     expect($initiative->status)->toBe('in_progress');
-    expect($initiative->engineer_owner)->toBe('John Doe');
 });
 
 test('initiative title is required', function () {
@@ -83,7 +81,7 @@ test('an initiative can be updated', function () {
             'title' => 'New Title',
             'status' => 'in_progress',
         ])
-        ->assertRedirect(route('board'));
+        ->assertRedirect();
 
     expect($initiative->refresh()->title)->toBe('New Title');
     expect($initiative->refresh()->status)->toBe('in_progress');
@@ -100,7 +98,7 @@ test('an initiative can be moved between teams and statuses', function () {
             'team_id' => $teamB->id,
             'status' => 'in_progress',
         ])
-        ->assertRedirect(route('board'));
+        ->assertRedirect();
 
     $initiative->refresh();
     expect($initiative->team_id)->toBe($teamB->id);
@@ -116,7 +114,7 @@ test('an initiative can be moved to unassigned pool', function () {
         ->patch(route('initiatives.move', $initiative), [
             'team_id' => null,
         ])
-        ->assertRedirect(route('board'));
+        ->assertRedirect();
 
     expect($initiative->refresh()->team_id)->toBeNull();
 });
@@ -129,7 +127,7 @@ test('deleting an initiative removes its dependencies', function () {
 
     $this->actingAs($user)
         ->delete(route('initiatives.destroy', $initiativeA))
-        ->assertRedirect(route('board'));
+        ->assertRedirect();
 
     expect(Initiative::find($initiativeA->id))->toBeNull();
     expect($initiativeB->refresh()->dependencies)->toHaveCount(0);

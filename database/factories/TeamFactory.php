@@ -18,8 +18,7 @@ class TeamFactory extends Factory
     {
         return [
             'name' => fake()->unique()->company(),
-            'delivery_lead' => fake()->name(),
-            'product_owner' => fake()->name(),
+            'description' => fake()->optional()->paragraph(),
             'color' => fake()->randomElement(['slate', 'red', 'orange', 'amber', 'lime', 'green', 'emerald', 'teal', 'cyan', 'sky', 'blue', 'indigo', 'violet', 'purple', 'fuchsia', 'pink', 'rose']),
         ];
     }

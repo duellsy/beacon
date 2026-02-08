@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Board;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -42,6 +43,8 @@ class HandleInertiaRequests extends Middleware
                 'user' => $request->user(),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            'boards' => fn () => $request->user() ? Board::query()->orderBy('sort_order')->get(['id', 'name']) : [],
+            'todo_suggestions' => fn () => $request->session()->get('todo_suggestions'),
         ];
     }
 }

@@ -1,46 +1,49 @@
 <?php
 
+use App\Models\Board;
 use App\Models\Initiative;
 use App\Models\Team;
 use App\Models\User;
 
 test('a team can be created', function () {
     $user = User::factory()->create();
+    $board = Board::factory()->create();
 
     $this->actingAs($user)
         ->post(route('teams.store'), [
             'name' => 'Payments',
-            'delivery_lead' => 'Chris Wong',
-            'product_owner' => 'Jane Smith',
             'color' => 'blue',
+            'board_id' => $board->id,
         ])
-        ->assertRedirect(route('board'));
+        ->assertRedirect();
 
     expect(Team::count())->toBe(1);
     expect(Team::first()->name)->toBe('Payments');
     expect(Team::first()->color)->toBe('blue');
 });
 
-test('team creation requires name, delivery lead, and product owner', function () {
+test('team creation requires name', function () {
     $user = User::factory()->create();
+    $board = Board::factory()->create();
 
     $this->actingAs($user)
-        ->post(route('teams.store'), [])
-        ->assertSessionHasErrors(['name', 'delivery_lead', 'product_owner']);
+        ->post(route('teams.store'), [
+            'board_id' => $board->id,
+        ])
+        ->assertSessionHasErrors(['name']);
 });
 
 test('a team can be updated', function () {
     $user = User::factory()->create();
-    $team = Team::factory()->create(['name' => 'Old Name']);
+    $board = Board::factory()->create();
+    $team = Team::factory()->create(['name' => 'Old Name', 'board_id' => $board->id]);
 
     $this->actingAs($user)
         ->put(route('teams.update', $team), [
             'name' => 'New Name',
-            'delivery_lead' => 'New Lead',
-            'product_owner' => 'New PO',
             'color' => 'red',
         ])
-        ->assertRedirect(route('board'));
+        ->assertRedirect();
 
     expect($team->refresh()->name)->toBe('New Name');
     expect($team->color)->toBe('red');
@@ -48,12 +51,13 @@ test('a team can be updated', function () {
 
 test('deleting a team moves its initiatives to unassigned pool', function () {
     $user = User::factory()->create();
-    $team = Team::factory()->create();
+    $board = Board::factory()->create();
+    $team = Team::factory()->create(['board_id' => $board->id]);
     $initiative = Initiative::factory()->forTeam($team)->create();
 
     $this->actingAs($user)
         ->delete(route('teams.destroy', $team))
-        ->assertRedirect(route('board'));
+        ->assertRedirect();
 
     expect(Team::count())->toBe(0);
     expect($initiative->refresh()->team_id)->toBeNull();
@@ -61,22 +65,23 @@ test('deleting a team moves its initiatives to unassigned pool', function () {
 
 test('team creation validates color is a valid option', function () {
     $user = User::factory()->create();
+    $board = Board::factory()->create();
 
     $this->actingAs($user)
         ->post(route('teams.store'), [
             'name' => 'Test',
-            'delivery_lead' => 'Lead',
-            'product_owner' => 'PO',
             'color' => 'neon',
+            'board_id' => $board->id,
         ])
         ->assertSessionHasErrors(['color']);
 });
 
 test('guests cannot create teams', function () {
+    $board = Board::factory()->create();
+
     $this->post(route('teams.store'), [
         'name' => 'Test',
-        'delivery_lead' => 'Lead',
-        'product_owner' => 'PO',
         'color' => 'blue',
+        'board_id' => $board->id,
     ])->assertRedirect(route('login'));
 });

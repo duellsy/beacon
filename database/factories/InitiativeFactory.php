@@ -22,9 +22,10 @@ class InitiativeFactory extends Factory
             'description' => fake()->optional()->paragraph(),
             'jira_url' => fake()->optional()->url(),
             'team_id' => null,
+            'team_member_id' => null,
             'project_id' => null,
             'status' => fake()->randomElement(['upcoming', 'in_progress', 'done']),
-            'engineer_owner' => fake()->optional()->name(),
+            'rag_status' => fake()->optional()->randomElement(['red', 'amber', 'green']),
             'expected_date' => fake()->optional()->dateTimeBetween('now', '+6 months'),
         ];
     }

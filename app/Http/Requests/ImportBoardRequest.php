@@ -16,8 +16,7 @@ class ImportBoardRequest extends FormRequest
             'teams' => ['present', 'array'],
             'teams.*.id' => ['required', 'string'],
             'teams.*.name' => ['required', 'string', 'max:255'],
-            'teams.*.delivery_lead' => ['required', 'string', 'max:255'],
-            'teams.*.product_owner' => ['required', 'string', 'max:255'],
+            'teams.*.description' => ['nullable', 'string', 'max:5000'],
             'teams.*.color' => ['nullable', 'string', 'in:slate,red,orange,amber,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose'],
             'teams.*.sort_order' => ['nullable', 'integer', 'min:0'],
 
@@ -33,7 +32,7 @@ class ImportBoardRequest extends FormRequest
             'initiatives.*.team_id' => ['nullable', 'string'],
             'initiatives.*.project_id' => ['nullable', 'string'],
             'initiatives.*.status' => ['required', 'in:upcoming,in_progress,done'],
-            'initiatives.*.engineer_owner' => ['nullable', 'string', 'max:255'],
+            'initiatives.*.rag_status' => ['nullable', 'in:red,amber,green'],
             'initiatives.*.expected_date' => ['nullable', 'date'],
             'initiatives.*.dependencies' => ['nullable', 'array'],
             'initiatives.*.dependencies.*' => ['string'],

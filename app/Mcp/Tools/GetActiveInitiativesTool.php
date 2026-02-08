@@ -26,7 +26,7 @@ class GetActiveInitiativesTool extends Tool
     {
         $initiatives = Initiative::query()
             ->whereIn('status', ['in_progress', 'upcoming'])
-            ->with(['team', 'project', 'dependencies'])
+            ->with(['team', 'project', 'dependencies', 'assignee'])
             ->get()
             ->map(function (Initiative $initiative) {
                 $blockers = $initiative->dependencies
@@ -35,7 +35,8 @@ class GetActiveInitiativesTool extends Tool
                 return [
                     'title' => $initiative->title,
                     'status' => $initiative->status,
-                    'engineer_owner' => $initiative->engineer_owner,
+                    'assignee' => $initiative->assignee?->name,
+                    'rag_status' => $initiative->rag_status,
                     'jira_url' => $initiative->jira_url,
                     'description' => $initiative->description,
                     'team' => $initiative->team?->name,

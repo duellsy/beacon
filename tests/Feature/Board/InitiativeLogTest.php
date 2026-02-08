@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Board;
 use App\Models\Initiative;
 use App\Models\InitiativeLog;
 use App\Models\User;
@@ -12,7 +13,7 @@ test('a log entry can be created for an initiative', function () {
         ->post(route('initiative-logs.store', $initiative), [
             'body' => 'Started working on this feature.',
         ])
-        ->assertRedirect(route('board'));
+        ->assertRedirect();
 
     $userLogs = InitiativeLog::where('type', 'user')->get();
     expect($userLogs)->toHaveCount(1);
@@ -53,7 +54,7 @@ test('logs are deleted when initiative is deleted', function () {
 
     $this->actingAs($user)
         ->delete(route('initiatives.destroy', $initiative))
-        ->assertRedirect(route('board'));
+        ->assertRedirect();
 
     expect(InitiativeLog::count())->toBe(0);
 });
@@ -67,7 +68,7 @@ test('initiative expected_date can be set when creating', function () {
             'status' => 'upcoming',
             'expected_date' => '2026-03-15',
         ])
-        ->assertRedirect(route('board'));
+        ->assertRedirect();
 
     expect(Initiative::first()->expected_date->toDateString())->toBe('2026-03-15');
 });
@@ -81,7 +82,7 @@ test('initiative expected_date can be null', function () {
             'status' => 'upcoming',
             'expected_date' => null,
         ])
-        ->assertRedirect(route('board'));
+        ->assertRedirect();
 
     expect(Initiative::first()->expected_date)->toBeNull();
 });
@@ -108,18 +109,19 @@ test('initiative expected_date can be updated', function () {
             'status' => 'upcoming',
             'expected_date' => '2026-06-01',
         ])
-        ->assertRedirect(route('board'));
+        ->assertRedirect();
 
     expect($initiative->refresh()->expected_date->toDateString())->toBe('2026-06-01');
 });
 
 test('board index includes initiative logs', function () {
     $user = User::factory()->create();
+    $board = Board::factory()->create();
     $initiative = Initiative::factory()->create();
     $initiative->logs()->create(['body' => 'Test log entry']);
 
     $response = $this->actingAs($user)
-        ->get(route('board'));
+        ->get(route('board.show', $board));
 
     $response->assertSuccessful();
     $initiatives = $response->original->getData()['page']['props']['initiatives'];
@@ -141,7 +143,7 @@ test('owner can update their log body', function () {
         ->put(route('initiative-logs.update', [$initiative, $log]), [
             'body' => 'Updated body',
         ])
-        ->assertRedirect(route('board'));
+        ->assertRedirect();
 
     expect($log->refresh()->body)->toBe('Updated body');
 });
@@ -156,7 +158,7 @@ test('owner can delete their log', function () {
 
     $this->actingAs($user)
         ->delete(route('initiative-logs.destroy', [$initiative, $log]))
-        ->assertRedirect(route('board'));
+        ->assertRedirect();
 
     expect(InitiativeLog::find($log->id))->toBeNull();
 });

@@ -3,13 +3,21 @@ import { CSS } from '@dnd-kit/utilities';
 import {
     AlertTriangle,
     Calendar,
+    CheckSquare,
     ExternalLink,
     GitBranch,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { getInitials } from '@/lib/utils';
 import type { Initiative } from '@/types/board';
 import type { TeamColor } from '@/types/board';
-import { COLOR_STYLES } from '@/types/board';
+import { COLOR_STYLES, RAG_STATUSES } from '@/types/board';
 
 type InitiativeCardProps = {
     initiative: Initiative;
@@ -50,9 +58,16 @@ export function InitiativeCard({
     const hasDependencies = initiative.dependencies.length > 0;
     const hasJiraUrl =
         initiative.jira_url !== null && initiative.jira_url !== '';
+    const todos = initiative.todos ?? [];
+    const totalTodos = todos.length;
+    const completedTodos = todos.filter((t) => t.is_complete).length;
 
     const borderColor = !initiative.is_blocked && teamColor
         ? COLOR_STYLES[teamColor].border
+        : undefined;
+
+    const ragColor = initiative.rag_status
+        ? RAG_STATUSES.find((r) => r.key === initiative.rag_status)?.color
         : undefined;
 
     return (
@@ -62,7 +77,7 @@ export function InitiativeCard({
             {...listeners}
             {...attributes}
             data-initiative-id={initiative.id}
-            className={`group cursor-grab rounded-lg border bg-white p-3 shadow-sm transition-all select-none active:cursor-grabbing dark:bg-neutral-900 ${
+            className={`group relative cursor-grab rounded-lg border bg-white p-3 shadow-sm transition-all select-none active:cursor-grabbing dark:bg-neutral-900 ${
                 initiative.is_blocked
                     ? 'border-red-400 bg-red-50/50 dark:border-red-500/60 dark:bg-red-950/20'
                     : !borderColor ? 'border-neutral-200 dark:border-neutral-700' : ''
@@ -77,6 +92,9 @@ export function InitiativeCard({
                 if (
                     (e.target as HTMLElement).closest(
                         '[data-jira-link]',
+                    ) ||
+                    (e.target as HTMLElement).closest(
+                        '[data-dep-handle]',
                     )
                 ) {
                     return;
@@ -84,10 +102,30 @@ export function InitiativeCard({
                 onOpen(initiative);
             }}
         >
+            {/* Dependency connection handles */}
+            <div
+                data-dep-handle="left"
+                className="absolute -left-1.5 top-1/2 z-10 flex size-3 -translate-y-1/2 cursor-crosshair items-center justify-center rounded-full border border-blue-400 bg-blue-500 opacity-0 transition-opacity hover:scale-125 group-hover:opacity-100"
+                onMouseDown={(e) => e.stopPropagation()}
+            />
+            <div
+                data-dep-handle="right"
+                className="absolute -right-1.5 top-1/2 z-10 flex size-3 -translate-y-1/2 cursor-crosshair items-center justify-center rounded-full border border-blue-400 bg-blue-500 opacity-0 transition-opacity hover:scale-125 group-hover:opacity-100"
+                onMouseDown={(e) => e.stopPropagation()}
+            />
             <div className="flex items-start justify-between gap-2">
-                <span className="text-sm font-medium leading-snug text-neutral-900 dark:text-neutral-100">
-                    {initiative.title}
-                </span>
+                <div className="flex items-start gap-2 min-w-0 flex-1">
+                    {ragColor && (
+                        <span
+                            className="mt-1 size-2.5 shrink-0 rounded-full"
+                            style={{ backgroundColor: ragColor }}
+                            title={`RAG: ${initiative.rag_status}`}
+                        />
+                    )}
+                    <span className="text-sm font-medium leading-snug text-neutral-900 dark:text-neutral-100">
+                        {initiative.title}
+                    </span>
+                </div>
                 <div className="flex shrink-0 items-center gap-1">
                     {hasDependencies && (
                         <GitBranch className="size-3.5 text-neutral-400" />
@@ -117,29 +155,50 @@ export function InitiativeCard({
                 </Badge>
             )}
 
-            {initiative.expected_date && (
-                <p
-                    className={`mt-1.5 flex items-center gap-1 text-xs ${
-                        isOverdue(initiative.expected_date)
-                            ? 'font-medium text-red-600 dark:text-red-400'
-                            : 'text-neutral-500 dark:text-neutral-400'
-                    }`}
-                >
-                    <Calendar className="size-3" />
-                    {new Date(initiative.expected_date).toLocaleDateString('en-AU', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                        timeZone: 'UTC',
-                    })}
-                </p>
-            )}
+            <div className="mt-1.5 flex items-center gap-2">
+                {initiative.expected_date && (
+                    <p
+                        className={`flex items-center gap-1 text-xs ${
+                            isOverdue(initiative.expected_date)
+                                ? 'font-medium text-red-600 dark:text-red-400'
+                                : 'text-neutral-500 dark:text-neutral-400'
+                        }`}
+                    >
+                        <Calendar className="size-3" />
+                        {new Date(initiative.expected_date).toLocaleDateString('en-AU', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                            timeZone: 'UTC',
+                        })}
+                    </p>
+                )}
 
-            {initiative.engineer_owner && (
-                <p className="mt-1.5 truncate text-xs text-neutral-500 dark:text-neutral-400">
-                    {initiative.engineer_owner}
-                </p>
-            )}
+                {totalTodos > 0 && (
+                    <span className={`flex items-center gap-1 text-xs ${completedTodos === totalTodos ? 'text-green-600 dark:text-green-400' : 'text-neutral-500 dark:text-neutral-400'}`}>
+                        <CheckSquare className="size-3" />
+                        {completedTodos}/{totalTodos}
+                    </span>
+                )}
+
+                {initiative.assignee && (
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span className="ml-auto flex size-6 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-[10px] font-medium text-neutral-700 dark:bg-neutral-700 dark:text-neutral-300">
+                                    {getInitials(initiative.assignee.name)}
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>{initiative.assignee.name}</p>
+                                {initiative.assignee.role && (
+                                    <p className="text-xs opacity-70">{initiative.assignee.role}</p>
+                                )}
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                )}
+            </div>
         </div>
     );
 }

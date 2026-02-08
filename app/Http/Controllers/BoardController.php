@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ImportBoardRequest;
+use App\Models\Board;
 use App\Models\Initiative;
 use App\Models\Project;
 use App\Models\Team;
@@ -15,15 +16,26 @@ use Inertia\Response;
 
 class BoardController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request, Board $board): Response
     {
-        $teams = Team::query()->orderBy('sort_order')->get();
+        $teams = $board->teams()->with('members')->orderBy('sort_order')->get();
+        $teamIds = $teams->pluck('id');
         $projects = Project::query()->orderBy('name')->get();
 
         $projectFilter = $request->query('project');
 
         $initiativesQuery = Initiative::query()
-            ->with(['dependencies:id,title,team_id,status', 'team:id,name', 'project:id,name', 'logs' => fn ($q) => $q->orderByDesc('created_at')]);
+            ->where(function ($q) use ($teamIds) {
+                $q->whereIn('team_id', $teamIds)->orWhereNull('team_id');
+            })
+            ->with([
+                'dependencies:id,title,team_id,status',
+                'team:id,name',
+                'project:id,name',
+                'assignee:id,name,role',
+                'logs' => fn ($q) => $q->orderByDesc('created_at'),
+                'todos' => fn ($q) => $q->orderBy('is_complete')->orderBy('deadline'),
+            ]);
 
         if ($projectFilter) {
             $initiativesQuery->where('project_id', $projectFilter);
@@ -36,7 +48,11 @@ class BoardController extends Controller
                 'is_blocked' => $initiative->isBlocked(),
             ]);
 
+        $boards = Board::query()->orderBy('sort_order')->get(['id', 'name']);
+
         return Inertia::render('board', [
+            'board' => $board,
+            'boards' => $boards,
             'teams' => $teams,
             'initiatives' => $initiatives,
             'projects' => $projects,
@@ -44,12 +60,14 @@ class BoardController extends Controller
         ]);
     }
 
-    public function export(): JsonResponse
+    public function export(Board $board): JsonResponse
     {
-        $teams = Team::query()->orderBy('sort_order')->get();
+        $teams = $board->teams()->with('members')->orderBy('sort_order')->get();
+        $teamIds = $teams->pluck('id');
         $projects = Project::query()->orderBy('name')->get();
 
         $initiatives = Initiative::query()
+            ->whereIn('team_id', $teamIds)
             ->with('dependencies:id')
             ->get()
             ->map(fn (Initiative $initiative) => [
@@ -58,9 +76,10 @@ class BoardController extends Controller
                 'description' => $initiative->description,
                 'jira_url' => $initiative->jira_url,
                 'team_id' => $initiative->team_id,
+                'team_member_id' => $initiative->team_member_id,
                 'project_id' => $initiative->project_id,
                 'status' => $initiative->status,
-                'engineer_owner' => $initiative->engineer_owner,
+                'rag_status' => $initiative->rag_status,
                 'expected_date' => $initiative->expected_date?->toDateString(),
                 'dependencies' => $initiative->dependencies->pluck('id')->values(),
                 'created_at' => $initiative->created_at,
@@ -74,16 +93,22 @@ class BoardController extends Controller
         ]);
     }
 
-    public function import(ImportBoardRequest $request): RedirectResponse
+    public function import(ImportBoardRequest $request, Board $board): RedirectResponse
     {
         /** @var array{teams: array<int, array<string, mixed>>, projects: array<int, array<string, mixed>>, initiatives: array<int, array<string, mixed>>} $validated */
         $validated = $request->validated();
 
-        DB::transaction(function () use ($validated): void {
-            DB::table('initiative_dependencies')->delete();
-            Initiative::query()->delete();
-            Team::query()->delete();
-            Project::query()->delete();
+        DB::transaction(function () use ($validated, $board): void {
+            $boardTeamIds = $board->teams()->pluck('id')->all();
+
+            DB::table('initiative_dependencies')
+                ->whereIn('initiative_id', function ($q) use ($boardTeamIds) {
+                    $q->select('id')->from('initiatives')->whereIn('team_id', $boardTeamIds);
+                })
+                ->delete();
+
+            Initiative::query()->whereIn('team_id', $boardTeamIds)->delete();
+            Team::query()->where('board_id', $board->id)->delete();
 
             $teamIds = collect($validated['teams'])->pluck('id')->all();
 
@@ -91,10 +116,10 @@ class BoardController extends Controller
                 $team = new Team;
                 $team->id = $teamData['id'];
                 $team->name = $teamData['name'];
-                $team->delivery_lead = $teamData['delivery_lead'];
-                $team->product_owner = $teamData['product_owner'];
+                $team->description = $teamData['description'] ?? null;
                 $team->color = $teamData['color'] ?? 'blue';
                 $team->sort_order = $teamData['sort_order'] ?? $index;
+                $team->board_id = $board->id;
                 $team->save();
             }
 
@@ -128,7 +153,7 @@ class BoardController extends Controller
                 $initiative->team_id = $teamId;
                 $initiative->project_id = $projectId;
                 $initiative->status = $initiativeData['status'];
-                $initiative->engineer_owner = $initiativeData['engineer_owner'] ?? null;
+                $initiative->rag_status = $initiativeData['rag_status'] ?? null;
                 $initiative->expected_date = $initiativeData['expected_date'] ?? null;
                 $initiative->save();
             }
@@ -144,6 +169,6 @@ class BoardController extends Controller
             }
         });
 
-        return to_route('board');
+        return to_route('board.show', $board);
     }
 }

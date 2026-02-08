@@ -19,9 +19,10 @@ class Initiative extends Model
         'description',
         'jira_url',
         'team_id',
+        'team_member_id',
         'project_id',
         'status',
-        'engineer_owner',
+        'rag_status',
         'expected_date',
     ];
 
@@ -41,6 +42,14 @@ class Initiative extends Model
     public function team(): BelongsTo
     {
         return $this->belongsTo(Team::class);
+    }
+
+    /**
+     * @return BelongsTo<TeamMember, $this>
+     */
+    public function assignee(): BelongsTo
+    {
+        return $this->belongsTo(TeamMember::class, 'team_member_id');
     }
 
     /**
@@ -87,6 +96,14 @@ class Initiative extends Model
     public function logs(): HasMany
     {
         return $this->hasMany(InitiativeLog::class);
+    }
+
+    /**
+     * @return HasMany<Todo, $this>
+     */
+    public function todos(): HasMany
+    {
+        return $this->hasMany(Todo::class);
     }
 
     public function isBlocked(): bool

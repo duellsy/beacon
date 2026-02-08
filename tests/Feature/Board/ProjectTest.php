@@ -1,7 +1,9 @@
 <?php
 
+use App\Models\Board;
 use App\Models\Initiative;
 use App\Models\Project;
+use App\Models\Team;
 use App\Models\User;
 
 test('a project can be created', function () {
@@ -11,7 +13,7 @@ test('a project can be created', function () {
         ->post(route('projects.store'), [
             'name' => 'Q2 Roadmap',
         ])
-        ->assertRedirect(route('board'));
+        ->assertRedirect();
 
     expect(Project::count())->toBe(1);
     expect(Project::first()->name)->toBe('Q2 Roadmap');
@@ -33,7 +35,7 @@ test('a project can be updated', function () {
         ->put(route('projects.update', $project), [
             'name' => 'New Name',
         ])
-        ->assertRedirect(route('board'));
+        ->assertRedirect();
 
     expect($project->refresh()->name)->toBe('New Name');
 });
@@ -45,7 +47,7 @@ test('deleting a project nullifies initiative project_id', function () {
 
     $this->actingAs($user)
         ->delete(route('projects.destroy', $project))
-        ->assertRedirect(route('board'));
+        ->assertRedirect();
 
     expect(Project::count())->toBe(0);
     expect($initiative->refresh()->project_id)->toBeNull();
@@ -59,12 +61,13 @@ test('guests cannot create projects', function () {
 
 test('board filters initiatives by project', function () {
     $user = User::factory()->create();
+    $board = Board::factory()->create();
     $project = Project::factory()->create();
     Initiative::factory()->create(['title' => 'In Project', 'project_id' => $project->id]);
     Initiative::factory()->create(['title' => 'No Project', 'project_id' => null]);
 
     $response = $this->actingAs($user)
-        ->get(route('board', ['project' => $project->id]));
+        ->get(route('board.show', ['board' => $board->id, 'project' => $project->id]));
 
     $response->assertOk();
     $response->assertInertia(fn ($page) => $page
@@ -78,11 +81,12 @@ test('board filters initiatives by project', function () {
 
 test('board returns all initiatives without project filter', function () {
     $user = User::factory()->create();
+    $board = Board::factory()->create();
     $project = Project::factory()->create();
     Initiative::factory()->create(['project_id' => $project->id]);
     Initiative::factory()->create(['project_id' => null]);
 
-    $response = $this->actingAs($user)->get(route('board'));
+    $response = $this->actingAs($user)->get(route('board.show', $board));
 
     $response->assertOk();
     $response->assertInertia(fn ($page) => $page
@@ -94,10 +98,12 @@ test('board returns all initiatives without project filter', function () {
 
 test('board export includes projects and project_id on initiatives', function () {
     $user = User::factory()->create();
+    $board = Board::factory()->create();
+    $team = Team::factory()->create(['board_id' => $board->id]);
     $project = Project::factory()->create();
-    Initiative::factory()->create(['project_id' => $project->id]);
+    Initiative::factory()->forTeam($team)->create(['project_id' => $project->id]);
 
-    $response = $this->actingAs($user)->get(route('board.export'));
+    $response = $this->actingAs($user)->get(route('board.export', $board));
 
     $response->assertOk();
     $response->assertJsonStructure([
@@ -110,6 +116,7 @@ test('board export includes projects and project_id on initiatives', function ()
 
 test('board import handles projects', function () {
     $user = User::factory()->create();
+    $board = Board::factory()->create();
 
     $importData = [
         'teams' => [],
@@ -128,15 +135,15 @@ test('board import handles projects', function () {
                 'team_id' => null,
                 'project_id' => 'proj-1',
                 'status' => 'upcoming',
-                'engineer_owner' => null,
+
                 'dependencies' => [],
             ],
         ],
     ];
 
     $this->actingAs($user)
-        ->post(route('board.import'), $importData)
-        ->assertRedirect(route('board'));
+        ->post(route('board.import', $board), $importData)
+        ->assertRedirect();
 
     expect(Project::count())->toBe(1);
     expect(Project::first()->name)->toBe('Imported Project');
@@ -145,6 +152,7 @@ test('board import handles projects', function () {
 
 test('board import handles invalid project references gracefully', function () {
     $user = User::factory()->create();
+    $board = Board::factory()->create();
 
     $importData = [
         'teams' => [],
@@ -158,15 +166,15 @@ test('board import handles invalid project references gracefully', function () {
                 'team_id' => null,
                 'project_id' => 'nonexistent-project',
                 'status' => 'upcoming',
-                'engineer_owner' => null,
+
                 'dependencies' => [],
             ],
         ],
     ];
 
     $this->actingAs($user)
-        ->post(route('board.import'), $importData)
-        ->assertRedirect(route('board'));
+        ->post(route('board.import', $board), $importData)
+        ->assertRedirect();
 
     expect(Initiative::first()->project_id)->toBeNull();
 });

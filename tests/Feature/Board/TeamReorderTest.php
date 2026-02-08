@@ -1,16 +1,18 @@
 <?php
 
+use App\Models\Board;
 use App\Models\Team;
 use App\Models\User;
 
 test('teams are returned in sort_order on the board', function () {
     $user = User::factory()->create();
-    $teamC = Team::factory()->create(['name' => 'Charlie', 'sort_order' => 2]);
-    $teamA = Team::factory()->create(['name' => 'Alpha', 'sort_order' => 0]);
-    $teamB = Team::factory()->create(['name' => 'Bravo', 'sort_order' => 1]);
+    $board = Board::factory()->create();
+    $teamC = Team::factory()->create(['name' => 'Charlie', 'sort_order' => 2, 'board_id' => $board->id]);
+    $teamA = Team::factory()->create(['name' => 'Alpha', 'sort_order' => 0, 'board_id' => $board->id]);
+    $teamB = Team::factory()->create(['name' => 'Bravo', 'sort_order' => 1, 'board_id' => $board->id]);
 
     $this->actingAs($user)
-        ->get(route('board'))
+        ->get(route('board.show', $board))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('board')
@@ -23,9 +25,10 @@ test('teams are returned in sort_order on the board', function () {
 
 test('reorder endpoint updates sort_order correctly', function () {
     $user = User::factory()->create();
-    $teamA = Team::factory()->create(['name' => 'Alpha', 'sort_order' => 0]);
-    $teamB = Team::factory()->create(['name' => 'Bravo', 'sort_order' => 1]);
-    $teamC = Team::factory()->create(['name' => 'Charlie', 'sort_order' => 2]);
+    $board = Board::factory()->create();
+    $teamA = Team::factory()->create(['name' => 'Alpha', 'sort_order' => 0, 'board_id' => $board->id]);
+    $teamB = Team::factory()->create(['name' => 'Bravo', 'sort_order' => 1, 'board_id' => $board->id]);
+    $teamC = Team::factory()->create(['name' => 'Charlie', 'sort_order' => 2, 'board_id' => $board->id]);
 
     $this->actingAs($user)
         ->post(route('teams.reorder'), [
@@ -39,7 +42,8 @@ test('reorder endpoint updates sort_order correctly', function () {
 });
 
 test('reorder requires authentication', function () {
-    $team = Team::factory()->create();
+    $board = Board::factory()->create();
+    $team = Team::factory()->create(['board_id' => $board->id]);
 
     $this->post(route('teams.reorder'), [
         'ids' => [$team->id],
@@ -64,9 +68,10 @@ test('reorder validates ids exist in database', function () {
 
 test('export includes sort_order', function () {
     $user = User::factory()->create();
-    Team::factory()->create(['sort_order' => 5]);
+    $board = Board::factory()->create();
+    Team::factory()->create(['sort_order' => 5, 'board_id' => $board->id]);
 
-    $response = $this->actingAs($user)->get(route('board.export'));
+    $response = $this->actingAs($user)->get(route('board.export', $board));
 
     $response->assertOk();
     $response->assertJsonPath('teams.0.sort_order', 5);
@@ -74,21 +79,18 @@ test('export includes sort_order', function () {
 
 test('import preserves sort_order from exported data', function () {
     $user = User::factory()->create();
+    $board = Board::factory()->create();
 
     $importData = [
         'teams' => [
             [
                 'id' => 'team-1',
                 'name' => 'First Team',
-                'delivery_lead' => 'Lead A',
-                'product_owner' => 'PO A',
                 'sort_order' => 3,
             ],
             [
                 'id' => 'team-2',
                 'name' => 'Second Team',
-                'delivery_lead' => 'Lead B',
-                'product_owner' => 'PO B',
                 'sort_order' => 1,
             ],
         ],
@@ -97,8 +99,8 @@ test('import preserves sort_order from exported data', function () {
     ];
 
     $this->actingAs($user)
-        ->post(route('board.import'), $importData)
-        ->assertRedirect(route('board'));
+        ->post(route('board.import', $board), $importData)
+        ->assertRedirect();
 
     expect(Team::query()->find('team-1')->sort_order)->toBe(3);
     expect(Team::query()->find('team-2')->sort_order)->toBe(1);
@@ -106,20 +108,17 @@ test('import preserves sort_order from exported data', function () {
 
 test('import falls back to array index when sort_order is missing', function () {
     $user = User::factory()->create();
+    $board = Board::factory()->create();
 
     $importData = [
         'teams' => [
             [
                 'id' => 'team-1',
                 'name' => 'First Team',
-                'delivery_lead' => 'Lead A',
-                'product_owner' => 'PO A',
             ],
             [
                 'id' => 'team-2',
                 'name' => 'Second Team',
-                'delivery_lead' => 'Lead B',
-                'product_owner' => 'PO B',
             ],
         ],
         'projects' => [],
@@ -127,8 +126,8 @@ test('import falls back to array index when sort_order is missing', function () 
     ];
 
     $this->actingAs($user)
-        ->post(route('board.import'), $importData)
-        ->assertRedirect(route('board'));
+        ->post(route('board.import', $board), $importData)
+        ->assertRedirect();
 
     expect(Team::query()->find('team-1')->sort_order)->toBe(0);
     expect(Team::query()->find('team-2')->sort_order)->toBe(1);
@@ -136,17 +135,17 @@ test('import falls back to array index when sort_order is missing', function () 
 
 test('new teams get sort_order at the end', function () {
     $user = User::factory()->create();
-    Team::factory()->create(['sort_order' => 0]);
-    Team::factory()->create(['sort_order' => 1]);
+    $board = Board::factory()->create();
+    Team::factory()->create(['sort_order' => 0, 'board_id' => $board->id]);
+    Team::factory()->create(['sort_order' => 1, 'board_id' => $board->id]);
 
     $this->actingAs($user)
         ->post(route('teams.store'), [
             'name' => 'New Team',
-            'delivery_lead' => 'Lead',
-            'product_owner' => 'PO',
             'color' => 'blue',
+            'board_id' => $board->id,
         ])
-        ->assertRedirect(route('board'));
+        ->assertRedirect();
 
     $newTeam = Team::query()->where('name', 'New Team')->first();
     expect($newTeam->sort_order)->toBe(2);

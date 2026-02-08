@@ -13,14 +13,18 @@ import {
     horizontalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { Head, router, usePage } from '@inertiajs/react';
+import type { FlashTodoSuggestion } from '@/types/board';
 import { AlertTriangle, Calendar, Columns3, Download, FolderOpen, MoreVertical, Pencil, Plus, Search, Upload, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BoardCell } from '@/components/board/board-cell';
 import { MobileTeamTabs } from '@/components/board/mobile-team-tabs';
+import { DependencyDragLayer } from '@/components/board/dependency-drag-layer';
 import { DependencyLines } from '@/components/board/dependency-lines';
 import { InitiativeCard } from '@/components/board/initiative-card';
 import { InitiativeModal } from '@/components/board/initiative-modal';
+import { TodoSuggestionModal } from '@/components/board/todo-suggestion-modal';
 import { ProjectModal } from '@/components/board/project-modal';
+import { TeamDetailSheet } from '@/components/board/team-detail-sheet';
 import { TeamHeader } from '@/components/board/team-header';
 import { TeamModal } from '@/components/board/team-modal';
 import { Button } from '@/components/ui/button';
@@ -51,6 +55,8 @@ import BoardController from '@/actions/App/Http/Controllers/BoardController';
 import InitiativeController from '@/actions/App/Http/Controllers/InitiativeController';
 import TeamController from '@/actions/App/Http/Controllers/TeamController';
 import type {
+    Board as BoardType,
+    BoardSummary,
     Initiative,
     InitiativeStatus,
     Project,
@@ -59,6 +65,8 @@ import type {
 import { STATUSES } from '@/types/board';
 
 type BoardProps = {
+    board: BoardType;
+    boards: BoardSummary[];
     teams: Team[];
     initiatives: Initiative[];
     projects: Project[];
@@ -66,9 +74,24 @@ type BoardProps = {
 };
 
 export default function Board() {
-    const { teams, initiatives, projects, currentProjectId } = usePage<{
-        props: BoardProps;
-    }>().props as unknown as BoardProps;
+    const pageProps = usePage<{
+        props: BoardProps & { todo_suggestions?: FlashTodoSuggestion[] };
+    }>().props as unknown as BoardProps & { todo_suggestions?: FlashTodoSuggestion[] };
+    const { board, boards, teams, initiatives, projects, currentProjectId } = pageProps;
+    const [flashSuggestions, setFlashSuggestions] = useState<FlashTodoSuggestion[]>([]);
+    const [lastSuggestionKey, setLastSuggestionKey] = useState<string>('');
+
+    // Capture flash suggestions whenever props change
+    useEffect(() => {
+        const suggestions = pageProps.todo_suggestions;
+        if (suggestions && suggestions.length > 0) {
+            const key = JSON.stringify(suggestions);
+            if (key !== lastSuggestionKey) {
+                setFlashSuggestions(suggestions);
+                setLastSuggestionKey(key);
+            }
+        }
+    }, [pageProps.todo_suggestions, lastSuggestionKey]);
 
     const contentRef = useRef<HTMLDivElement>(null);
 
@@ -89,6 +112,30 @@ export default function Board() {
         defaultTeamId: string | null;
         defaultStatus: InitiativeStatus | null;
     }>({ open: false, initiative: null, defaultTeamId: null, defaultStatus: null });
+
+    // Auto-open initiative from URL param (e.g. ?initiative=uuid)
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const initiativeId = params.get('initiative');
+        if (initiativeId) {
+            const init = initiatives.find((i) => i.id === initiativeId);
+            if (init) {
+                setInitiativeModal({ open: true, initiative: init, defaultTeamId: null, defaultStatus: null });
+            }
+            // Clean up the URL param
+            params.delete('initiative');
+            const newUrl = params.toString()
+                ? `${window.location.pathname}?${params.toString()}`
+                : window.location.pathname;
+            window.history.replaceState({}, '', newUrl);
+        }
+    }, []);
+
+    // Team detail sheet state
+    const [teamDetailSheet, setTeamDetailSheet] = useState<{
+        open: boolean;
+        team: Team | null;
+    }>({ open: false, team: null });
 
     // Hover state for dependency lines
     const [hoveredInitiativeId, setHoveredInitiativeId] = useState<
@@ -125,7 +172,7 @@ export default function Board() {
             result = result.filter(
                 (i) =>
                     i.title.toLowerCase().includes(q) ||
-                    (i.engineer_owner?.toLowerCase().includes(q) ?? false) ||
+                    (i.assignee?.name.toLowerCase().includes(q) ?? false) ||
                     (i.description?.toLowerCase().includes(q) ?? false),
             );
         }
@@ -327,7 +374,7 @@ export default function Board() {
 
     // Export
     const handleExport = async () => {
-        const response = await fetch(BoardController.export.url());
+        const response = await fetch(BoardController.export.url(board.id));
         const data = await response.json();
         const blob = new Blob([JSON.stringify(data, null, 2)], {
             type: 'application/json',
@@ -352,7 +399,7 @@ export default function Board() {
             const text = await file.text();
             try {
                 const data = JSON.parse(text);
-                router.post(BoardController.import.url(), data);
+                router.post(BoardController.import.url(board.id), data);
             } catch {
                 alert('Invalid JSON file');
             }
@@ -364,7 +411,7 @@ export default function Board() {
 
     return (
         <AppLayout>
-            <Head title="Board" />
+            <Head title={board.name} />
 
             <div className="flex h-full flex-col overflow-hidden">
                 {/* Top nav */}
@@ -382,7 +429,7 @@ export default function Board() {
                                         ? {}
                                         : { project: v };
                                 router.get(
-                                    BoardController.index.url(),
+                                    BoardController.index.url(board.id),
                                     params,
                                     { preserveState: true },
                                 );
@@ -749,6 +796,12 @@ export default function Board() {
                                                             team: t,
                                                         })
                                                     }
+                                                    onClickTeam={(t) =>
+                                                        setTeamDetailSheet({
+                                                            open: true,
+                                                            team: t,
+                                                        })
+                                                    }
                                                 />
                                             ))}
                                         </SortableContext>
@@ -857,6 +910,7 @@ export default function Board() {
                                     hoveredId={hoveredInitiativeId}
                                     contentRef={contentRef}
                                 />
+                                <DependencyDragLayer contentRef={contentRef} />
                             </div>
                         </div>
                     )}
@@ -884,6 +938,7 @@ export default function Board() {
                     setTeamModal({ open: false, team: null })
                 }
                 team={teamModal.team}
+                boardId={board.id}
             />
 
             <ProjectModal
@@ -918,6 +973,23 @@ export default function Board() {
                 defaultTeamId={initiativeModal.defaultTeamId}
                 defaultStatus={initiativeModal.defaultStatus}
             />
+
+            <TeamDetailSheet
+                open={teamDetailSheet.open}
+                onClose={() => setTeamDetailSheet({ open: false, team: null })}
+                team={teamDetailSheet.team ? (teams.find(t => t.id === teamDetailSheet.team!.id) ?? teamDetailSheet.team) : null}
+                onEditTeam={(t) => {
+                    setTeamDetailSheet({ open: false, team: null });
+                    setTeamModal({ open: true, team: t });
+                }}
+            />
+
+            {flashSuggestions.length > 0 && (
+                <TodoSuggestionModal
+                    suggestions={flashSuggestions}
+                    onClose={() => setFlashSuggestions([])}
+                />
+            )}
         </AppLayout>
     );
 }
